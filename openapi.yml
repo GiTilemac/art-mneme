@@ -1,0 +1,46 @@
+openapi: 3.1.0
+
+info:
+  title: Artwork Collection & Exploration API
+  version: 1.0.0
+  description: |
+    Personal artwork collection and exploration platform.
+
+servers:
+  - url: https://api.example.com
+
+tags:
+  - name: Authentication
+  - name: Artworks
+  - name: Watchlist
+  - name: Photos
+  - name: Exploration
+  - name: Search
+  - name: Discoverability
+  - name: Artists
+  - name: Movements
+  - name: Subjects
+  - name: Tags
+
+paths:
+
+  /auth/register:
+    post:
+      tags: [Authentication]
+      summary: Register user
+
+  /auth/login:
+    post:
+      tags: [Authentication]
+      summary: Login user
+
+  /auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Logout user
+
+  /auth/me:
+    get:
+      tags: [Authentication]
+      summary: Get current user
+
