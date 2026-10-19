@@ -91,6 +91,22 @@ without requiring social-network functionality.
 
 ---
 
+# Platform
+
+v1 targets desktop browsers.
+
+A later version will target Android phones.
+
+v1 screens must:
+
+```text
+Resize to narrow widths
+
+Not rely on hover, right-click or drag
+```
+
+---
+
 # Authentication
 
 Authentication is required.
