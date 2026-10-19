@@ -101,6 +101,16 @@ Supported in v1:
 Email + Password
 ```
 
+Password rule:
+
+```text
+At least 8 characters
+
+No other composition rules
+```
+
+Users stay logged in for 30 days. The 30 days restart each time they use the app.
+
 Each user owns:
 
 ```text
@@ -205,6 +215,36 @@ Date
 ```
 
 Identity fields are used for duplicate detection and discoverability validation.
+
+---
+
+## Date Entry
+
+The user enters:
+
+```text
+From year     (required for a date)
+
+To year       (optional)
+
+Circa         (checkbox)
+
+BC            (checkbox)
+```
+
+The displayed date is generated from these.
+
+Examples:
+
+```text
+1642
+
+1600–1605
+
+c. 1600
+
+c. 450 BC
+```
 
 ---
 
@@ -447,7 +487,7 @@ Hyphens
 
 Autocomplete prioritizes popular tags.
 
-Very low-usage tags may be hidden from suggestions.
+Tags used on fewer than 2 artworks are hidden from suggestions.
 
 The tag remains valid even when hidden.
 
@@ -470,6 +510,20 @@ Not searchable
 ---
 
 # Photos
+
+Applies to artwork photos and detail photos.
+
+```text
+Original file:   up to 30 MB
+
+Before upload:   shrunk in the browser to about 2,500 pixels on the longest side
+
+File types:      any image the browser can open
+
+Stored as:       JPEG
+```
+
+Files the browser cannot open are refused with a message saying the file type is not supported.
 
 ## Artwork Photo
 
@@ -871,6 +925,24 @@ Duplicate detection uses:
 Title
 Artist
 Date
+```
+
+Matching:
+
+```text
+Title:   same, ignoring capital letters and extra spaces
+
+Artist:  same artist
+
+Date:    same years, same Circa and BC choices
+```
+
+The check runs only when title, artist and date are all set.
+
+Compared against:
+
+```text
+The user's own artworks (collection and watchlist)
 ```
 
 Behavior:

@@ -183,6 +183,8 @@ Cloudflare R2, used from day one.
 
 ```text
 Cookie sessions.
+
+Session lifetime: 30 days, renewed on each use.
 ```
 
 ---
@@ -195,6 +197,24 @@ One container.
 Frontend:  served at /
 
 API:       served at /api
+```
+
+---
+
+## Test Tools
+
+```text
+Backend:   pytest
+
+Frontend:  Vitest + React Testing Library
+```
+
+---
+
+## Continuous Integration
+
+```text
+GitHub Actions
 ```
 
 ---

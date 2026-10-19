@@ -307,6 +307,16 @@ If artwork creation breaks:
 Users cannot use the primary functionality of the application.
 ```
 
+Fires when:
+
+```text
+Any artwork creation fails within the last 15 minutes.
+```
+
+Only the application's own failures count, such as a server error, an unavailable database or unreachable photo storage.
+
+User input errors, such as a missing required photo or an invalid tag, do not count.
+
 ---
 
 ## Alert Inputs

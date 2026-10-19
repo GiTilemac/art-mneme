@@ -145,6 +145,7 @@ date_display
 
 year_start
 year_end
+date_is_circa
 
 subject_id (FK)
 
@@ -162,6 +163,17 @@ artwork_photo_path
 
 created_at
 updated_at
+```
+
+---
+
+## Date Fields
+
+```text
+date_display    generated from the fields below, e.g. "c. 450 BC"
+year_start      BC years stored as negative numbers (450 BC = -450)
+year_end        optional; same rule
+date_is_circa   yes/no
 ```
 
 ---
@@ -302,14 +314,25 @@ created_at
 
 ## Seed Data
 
-Examples:
+Seeded movements:
 
 ```text
-Baroque
+Gothic
 Renaissance
-Impressionism
+Mannerism
+Baroque
+Rococo
+Neoclassicism
 Romanticism
+Realism
+Impressionism
+Post-Impressionism
+Symbolism
 Expressionism
+Cubism
+Surrealism
+Abstract Expressionism
+Pop Art
 ```
 
 Users may create additional movements.
@@ -443,7 +466,7 @@ Autocomplete prioritizes:
 Frequently-used tags
 ```
 
-Very low-usage tags may be hidden from suggestions.
+Tags with usage_count below 2 are hidden from suggestions.
 
 Hidden tags remain valid database records.
 

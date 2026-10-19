@@ -113,6 +113,18 @@ Decision recorded in:
 docs/architecture.md
 ```
 
+Backlog:
+
+- At the project owner's request, Claude drafted a task backlog from the existing documents.
+- Claude listed the open questions the backlog depended on and explained the options for each.
+- The project owner decided test tools, CI, seeded movements, password and session rules, duplicate matching, date entry and storage, tag hiding, photo handling and the alert rule.
+
+Recorded in:
+
+```text
+docs/tasks.md
+```
+
 ---
 
 # AI Contributions
