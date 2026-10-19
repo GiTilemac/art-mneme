@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Instructions for AI coding agents working on ArtMneme. `CLAUDE.md` imports this file.
+Instructions for AI coding agents working on ArtMneme. `.claude/CLAUDE.md` imports this file.
 
 ---
 
@@ -33,3 +33,29 @@ Also: `docs/observability.md` covers metrics, alerts and the responder agent.
 
 - Do not introduce undocumented endpoints. Keep `openapi.yml` and the implementation in sync.
 - Record AI contributions in `ai-usage-report.md`.
+
+## Guidelines
+- Don't assume. Don't hide confusion. Surface tradeoffs.
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask
+
+- No features beyond what was asked
+- No abstractions for single-use code
+- No error handling for impossible scenarios.
+- If you write e.g. 200 lines and it could be e.g. 50, rewrite it.
+- Ask yourself, "Would a senior engineer say this is overcomplicated? If yes, simplify.
+- Touch only what you must. Clean up your own mess.
+- Don't refactor things that aren't broken.
+- If you notice unrelated dead code, mention it. Don't delete it.
+- When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+Every changed line should trace directly to the user's request.
+Transform tasks into verifiable goals.
+"Add validation" includes writing tests for invalid inputs and making them pass.
+"Fix the bug" includes writing a test that reproduces it, then making it pass.
+"Refactor X" includes tests pass before and after
