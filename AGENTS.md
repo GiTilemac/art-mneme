@@ -15,8 +15,8 @@ Instructions for AI coding agents working on ArtMneme. `.claude/CLAUDE.md` impor
 Read the relevant document before implementing. When they conflict, this order wins:
 
 1. `product-spec.md`: business behavior and acceptance criteria
-2. `openapi.yml`: API contract
-3. `database-schema.md`: data model
+2. `openapi.yaml`: API contract
+3. `docs/database-schema.md`: data model
 4. `docs/architecture.md`: layers, technology stack, deployment
 
 Also: `docs/observability.md` covers metrics, alerts and the responder agent.
@@ -31,8 +31,8 @@ Also: `docs/observability.md` covers metrics, alerts and the responder agent.
 
 ## Agent Rules
 
-- Do not introduce undocumented endpoints. Keep `openapi.yml` and the implementation in sync.
-- Record AI contributions in `ai-usage-report.md`.
+- Do not introduce undocumented endpoints. Keep `openapi.yaml` and the implementation in sync.
+- Record AI contributions in `docs/ai-usage-report.md`.
 
 ## Guidelines
 - Don't assume. Don't hide confusion. Surface tradeoffs.
