@@ -2,21 +2,44 @@
 
 ## Project
 
-**ArtMneme**
+ArtMneme
 
 Personal artwork collection and relationship exploration platform.
 
 ---
 
-# Purpose of This Document
+# Purpose
 
-This document records how AI tools were used during the development of ArtMneme.
+This document records the use of AI tools throughout the design and development of ArtMneme.
 
-The goal is to provide transparency regarding:
+The goals are:
 
-- AI-assisted design decisions
-- AI-assisted implementation
-- Human decisions and oversight
+- transparency
+- accountability
+- reproducibility
+- clear separation between AI assistance and human decision-making
+
+---
+
+# Development Approach
+
+ArtMneme uses an AI-assisted development workflow.
+
+AI tools are used as:
+
+```text
+Design Assistants
+
+Implementation Assistants
+
+Architecture Assistants
+
+Documentation Assistants
+```
+
+AI does not act autonomously.
+
+All final decisions remain the responsibility of the project owner.
 
 ---
 
@@ -24,82 +47,125 @@ The goal is to provide transparency regarding:
 
 ## Microsoft 365 Copilot (GPT-5)
 
-Used for:
+Primary AI assistant.
 
-- Product specification drafting
-- Requirements analysis
-- Acceptance criteria generation
-- Database schema design
-- OpenAPI specification generation
-- Architecture discussions
-- Testing strategy discussions
-- Observability planning
+Used extensively for:
+
+```text
+Product Design
+
+Requirements Engineering
+
+Database Design
+
+API Design
+
+Architecture Design
+
+Observability Design
+
+Documentation Generation
+```
 
 ---
 
 ## Additional AI Tools
 
-To be updated as development progresses.
-
-Possible future tools:
-
-```text
-GitHub Copilot
-Claude
-Cursor
-ChatGPT
-```
-
-If used, their contributions should be recorded below.
-
----
-
-# AI-Assisted Activities
-
-## Product Ideation
-
-AI was used to:
-
-- explore project concepts
-- compare alternative product designs
-- evaluate scope
-- identify risks and edge cases
-
-Human decisions determined the final product direction.
+This section should be updated as development progresses.
 
 Examples:
 
 ```text
-Collection-first philosophy
+GitHub Copilot
 
-Relationship-driven community discovery
+Claude
 
-Private image model
+Cursor
 
-Watchlist design
+ChatGPT
+```
 
-Discoverability rules
+---
+
+## Claude Code (Claude Opus 5.5)
+
+Used for:
+
+```text
+Specification Consistency Review
+
+Technology Stack Options Analysis
+```
+
+Technology stack:
+
+- Claude proposed four options and explained the tradeoffs of each.
+- The project owner selected Python + FastAPI.
+
+Architecture choices:
+
+- Claude explained the options for photo storage, login and deployment shape.
+- The project owner chose Cloudflare R2 from day one, cookie sessions and one container.
+
+Decision recorded in:
+
+```text
+docs/architecture.md
+```
+
+---
+
+# AI Contributions
+
+## Product Design
+
+AI assisted with:
+
+```text
+Problem Definition
+
+Product Scope
+
+User Workflows
+
+Community Model
+
+Watchlist Model
+
+Relationship Exploration Design
+
+Discoverability Design
+
+Non-Goals Definition
+```
+
+Primary artifact:
+
+```text
+product-spec.md
 ```
 
 ---
 
 ## Requirements Engineering
 
-AI was used to help create:
+AI assisted with:
+
+```text
+Acceptance Criteria
+
+Feature Refinement
+
+Constraint Identification
+
+Edge Case Analysis
+```
+
+Outputs incorporated into:
 
 ```text
 product-spec.md
 ```
-
-including:
-
-- problem statement
-- goals
-- user workflows
-- acceptance criteria
-- non-goals
-
-Final requirements were reviewed and selected by the project owner.
 
 ---
 
@@ -107,28 +173,21 @@ Final requirements were reviewed and selected by the project owner.
 
 AI assisted with:
 
-- entity identification
-- ownership models
-- discoverability workflows
-- relationship exploration workflows
-
-Examples:
-
 ```text
-Artwork
+Artwork Model
 
-Artist
+Artist Model
 
-Movement
+Movement Model
 
-Subject
+Subject Model
 
-Tag
+Tag Model
 
-DetailPhoto
+Discoverability Rules
 ```
 
-Final decisions were made by the project owner.
+Final decisions remained human-owned.
 
 ---
 
@@ -137,17 +196,22 @@ Final decisions were made by the project owner.
 AI assisted with:
 
 ```text
-database-schema.md
+Entity Discovery
+
+Relationship Mapping
+
+Ownership Rules
+
+Schema Refinement
+
+Indexing Recommendations
 ```
 
-including:
+Primary artifact:
 
-- entity relationships
-- normalization discussions
-- ownership rules
-- future extensibility analysis
-
-Final schema decisions were reviewed and approved by the project owner.
+```text
+docs/database-schema.md
+```
 
 ---
 
@@ -156,75 +220,292 @@ Final schema decisions were reviewed and approved by the project owner.
 AI assisted with:
 
 ```text
+REST Resource Design
+
+Endpoint Modeling
+
+Contract Design
+
+OpenAPI Specification Generation
+```
+
+Primary artifact:
+
+```text
 openapi.yaml
 ```
 
-including:
-
-- endpoint design
-- resource structure
-- relationship-exploration routes
-- discoverability routes
-- watchlist workflows
-
-The final API design was chosen by the project owner.
-
 ---
 
-## Architecture Discussions
+## Architecture Design
 
 AI assisted with:
 
-- frontend/backend separation
-- OpenAPI-first workflow
-- deployment considerations
-- observability planning
+```text
+System Architecture
 
-Architecture decisions remain under human control.
+Frontend / Backend Separation
+
+OpenAPI-First Workflow
+
+Deployment Preparation
+
+Observability Planning
+```
+
+Primary artifact:
+
+```text
+docs/architecture.md
+```
 
 ---
 
-## Naming Discussions
+## Observability Design
 
-AI assisted in brainstorming:
+AI assisted with:
 
 ```text
-ArtMneme
+Metrics Selection
+
+Alert Design
+
+Responder-Agent Planning
+
+Telemetry Strategy
 ```
 
-and alternative product names.
+Primary artifact:
 
-The final name selection was made by the project owner.
+```text
+docs/observability.md
+```
+
+---
+
+## Documentation
+
+AI assisted with creation of:
+
+```text
+README.md
+
+AGENTS.md
+
+database-schema.md
+
+architecture.md
+
+observability.md
+
+ai-usage-report.md
+```
 
 ---
 
 # Human Responsibilities
 
-The project owner remains responsible for:
-
-## Product Decisions
-
-Including:
-
-- scope
-- requirements
-- priorities
-- acceptance criteria
+The project owner remains responsible for all final outcomes.
 
 ---
 
-## Architecture Decisions
+## Product Decisions
 
-Including:
+The project owner selected:
 
-- technology stack
-- deployment platform
-- infrastructure choices
+```text
+Feature Set
+
+Scope
+
+Acceptance Criteria
+
+Roadmap
+```
+
+---
+
+## Technical Decisions
+
+The project owner remains responsible for:
+
+```text
+Technology Stack
+
+Dependencies
+
+Security Decisions
+
+Infrastructure Decisions
+```
+
+---
+
+## Validation
+
+The project owner must validate:
+
+```text
+Correctness
+
+Performance
+
+Security
+
+Compliance
+```
+
+of all generated artifacts.
 
 ---
 
 ## Code Review
 
-All AI-generated suggestions should be:
+All AI-generated code must be:
 
 ```text
+Reviewed
+
+Verified
+
+Modified when necessary
+```
+
+before inclusion in the project.
+
+---
+
+## Testing
+
+The project owner remains responsible for:
+
+```text
+Unit Tests
+
+Frontend Tests
+
+Integration Tests
+
+Acceptance Testing
+```
+
+regardless of AI assistance.
+
+---
+
+# Development Timeline
+
+## Phase 1 — Product Definition
+
+AI assisted with:
+
+```text
+Project Ideation
+
+Problem Analysis
+
+Requirements Discovery
+
+Workflow Design
+```
+
+Artifacts:
+
+```text
+product-spec.md
+```
+
+---
+
+## Phase 2 — Domain Design
+
+AI assisted with:
+
+```text
+Entity Modeling
+
+Ownership Modeling
+
+Discoverability Rules
+
+Community Rules
+```
+
+Artifacts:
+
+```text
+product-spec.md
+docs/database-schema.md
+```
+
+---
+
+## Phase 3 — Database Design
+
+AI assisted with:
+
+```text
+Schema Design
+
+Relationship Mapping
+
+Constraint Identification
+
+Index Planning
+```
+
+Artifacts:
+
+```text
+docs/database-schema.md
+```
+
+---
+
+## Phase 4 — API Design
+
+AI assisted with:
+
+```text
+REST Design
+
+Endpoint Design
+
+OpenAPI Generation
+```
+
+Artifacts:
+
+```text
+openapi.yaml
+```
+
+---
+
+## Phase 5 — Architecture Design
+
+AI assisted with:
+
+```text
+Architecture Planning
+
+Component Responsibilities
+
+Deployment Preparation
+```
+
+Artifacts:
+
+```text
+docs/architecture.md
+```
+
+---
+
+## Phase 6 — Observability Planning
+
+AI assisted with:
+
+```text
+Metrics Strategy
+
