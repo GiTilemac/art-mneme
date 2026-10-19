@@ -4,5 +4,5 @@
 
 Roles
 
-- PM - grooms a task before anyone implements it, follows docs/team/pm.md
-- Engineer - implements one groomed task, follows docs/team/software-engineer.md
+- PM - creates a GitHub issue from a task in docs/tasks.md and grooms it before anyone implements it, follows docs/team/pm.md
+- Engineer - implements one groomed task, follows docs/team/dev.md
