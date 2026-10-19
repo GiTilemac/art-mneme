@@ -211,6 +211,16 @@ Frontend:  Vitest + React Testing Library
 
 ---
 
+## UI Library
+
+```text
+MUI
+```
+
+See `docs/design-system.md`.
+
+---
+
 ## Continuous Integration
 
 ```text
@@ -624,6 +634,12 @@ API Contracts
 Relationship Queries
 
 Discoverability Rules
+```
+
+Testing rules are defined in:
+
+```text
+docs/testing-guidelines.md
 ```
 
 ---

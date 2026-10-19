@@ -188,11 +188,22 @@ Instructions for AI-assisted development.
 ├── backend/
 ├── tests/
 │
+├── .claude/
+│   └── CLAUDE.md
+│
 └── docs/
     ├── database-schema.md
     ├── architecture.md
     ├── observability.md
-    └── ai-usage-report.md
+    ├── design-system.md
+    ├── testing-guidelines.md
+    ├── process.md
+    ├── tasks.md
+    ├── task-template.md
+    ├── ai-usage-report.md
+    └── team/
+        ├── pm.md
+        └── dev.md
 ```
 
 ---
