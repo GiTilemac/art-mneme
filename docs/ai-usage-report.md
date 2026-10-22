@@ -118,6 +118,8 @@ Backlog:
 - At the project owner's request, Claude drafted a task backlog from the existing documents.
 - Claude listed the open questions the backlog depended on and explained the options for each.
 - The project owner decided test tools, CI, seeded movements, password and session rules, duplicate matching, date entry and storage, tag hiding, photo handling and the alert rule.
+- Claude explained the tradeoffs of using Lovable for the frontend, of doing CI and deployment early or late, and of ways to bring the Lovable repo into this one.
+- The project owner decided the backlog covers backend development only, imported the Lovable frontend into `frontend/` with git subtree, and kept operations and observability work outside the backlog.
 
 Recorded in:
 
