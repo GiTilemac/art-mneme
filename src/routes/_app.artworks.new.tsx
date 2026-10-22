@@ -8,7 +8,7 @@ import * as api from "@/lib/api";
 import { emptyInput, type ArtworkInput } from "@/lib/domain";
 
 export const Route = createFileRoute("/_app/artworks/new")({
-  validateSearch: (s: Record<string, unknown>): { from?: string } => ({ from: typeof s.from === "string" ? s.from : undefined }),
+  validateSearch: (s: Record<string, unknown>): { from?: string | undefined } => ({ from: typeof s["from"] === "string" ? s["from"] : undefined }),
   head: () => ({
     meta: [
       { title: "Add artwork — ArtMneme" },

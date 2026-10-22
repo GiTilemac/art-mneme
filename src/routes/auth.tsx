@@ -7,9 +7,9 @@ import * as api from "@/lib/api";
 import { MIN_PASSWORD_LENGTH } from "@/lib/domain";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>): { mode?: "signup"; redirect?: string } => ({
-    mode: s.mode === "signup" ? "signup" : undefined,
-    redirect: typeof s.redirect === "string" && s.redirect.startsWith("/") ? s.redirect : undefined,
+  validateSearch: (s: Record<string, unknown>): { mode?: "signup" | undefined; redirect?: string | undefined } => ({
+    mode: s["mode"] === "signup" ? "signup" : undefined,
+    redirect: typeof s["redirect"] === "string" && s["redirect"].startsWith("/") ? s["redirect"] : undefined,
   }),
   head: () => ({
     meta: [
