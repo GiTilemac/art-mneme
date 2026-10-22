@@ -11,29 +11,29 @@ import * as api from "@/lib/api";
 import type { ArtworkState } from "@/lib/domain";
 
 export interface BrowseSearch {
-  q?: string;
-  view?: "grid" | "list";
-  page?: number;
-  artist?: string;
-  movement?: string;
-  museum?: string;
-  tags?: string;
-  from?: number;
-  to?: number;
+  q?: string | undefined;
+  view?: "grid" | "list" | undefined;
+  page?: number | undefined;
+  artist?: string | undefined;
+  movement?: string | undefined;
+  museum?: string | undefined;
+  tags?: string | undefined;
+  from?: number | undefined;
+  to?: number | undefined;
 }
 
 const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
 const num = (v: unknown) => (v === "" || v == null || isNaN(Number(v)) ? undefined : Number(v));
 export const parseBrowseSearch = (s: Record<string, unknown>): BrowseSearch => ({
-  q: str(s.q),
-  view: s.view === "list" ? "list" : undefined,
-  page: num(s.page),
-  artist: str(s.artist),
-  movement: str(s.movement),
-  museum: str(s.museum),
-  tags: str(s.tags),
-  from: num(s.from),
-  to: num(s.to),
+  q: str(s["q"]),
+  view: s["view"] === "list" ? "list" : undefined,
+  page: num(s["page"]),
+  artist: str(s["artist"]),
+  movement: str(s["movement"]),
+  museum: str(s["museum"]),
+  tags: str(s["tags"]),
+  from: num(s["from"]),
+  to: num(s["to"]),
 });
 
 const selectCls = "h-9 w-full rounded-md border border-input bg-card px-2 text-sm";

@@ -192,14 +192,14 @@ export async function suggestTags(query: string): Promise<Entity[]> {
 // ---------- artworks ----------
 export interface ListParams {
   state: ArtworkState;
-  q?: string;
-  artistId?: string;
-  movementId?: string;
-  museum?: string;
-  tagIds?: string[];
-  fromYear?: number;
-  toYear?: number;
-  page?: number;
+  q?: string | undefined;
+  artistId?: string | undefined;
+  movementId?: string | undefined;
+  museum?: string | undefined;
+  tagIds?: string[] | undefined;
+  fromYear?: number | undefined;
+  toYear?: number | undefined;
+  page?: number | undefined;
 }
 export interface Page<T> {
   items: T[];
