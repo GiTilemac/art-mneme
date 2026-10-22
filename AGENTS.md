@@ -59,3 +59,14 @@ Transform tasks into verifiable goals.
 "Add validation" includes writing tests for invalid inputs and making them pass.
 "Fix the bug" includes writing a test that reproduces it, then making it pass.
 "Refactor X" includes tests pass before and after
+
+## Commands
+
+- `uv sync` - install dependencies
+- `uv run pytest` - the whole suite
+- `uv run pytest tests/test_home.py` - one test file
+
+## Rules
+
+- Dependencies are added in `pyproject.toml`. Do not add one without
+  asking
