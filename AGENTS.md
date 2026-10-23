@@ -33,6 +33,12 @@ Also: `docs/observability.md` covers metrics, alerts and the responder agent.
 
 - Do not introduce undocumented endpoints. Keep `openapi.yaml` and the implementation in sync.
 - Record AI contributions in `docs/ai-usage-report.md`.
+- Stop and ask the project owner before:
+  - deleting important data
+  - force-pushing
+  - modifying external systems
+  - performing destructive operations
+  - making a decision that requires the owner's approval
 
 ## Guidelines
 - Don't assume. Don't hide confusion. Surface tradeoffs.

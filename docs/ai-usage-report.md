@@ -127,6 +127,17 @@ Recorded in:
 docs/tasks.md
 ```
 
+Agent rules:
+
+- The project owner set a rule that AI agents must stop and ask before deleting important data, force-pushing, modifying external systems, performing destructive operations, or making a decision that requires the owner's approval.
+- At the project owner's request, Claude added the rule to `AGENTS.md`.
+
+Recorded in:
+
+```text
+AGENTS.md
+```
+
 ---
 
 # AI Contributions
