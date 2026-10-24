@@ -560,8 +560,10 @@ How the device remembers the original file is not decided yet.
 Each artwork contains:
 
 ```text
-Exactly One Artwork Photo
+Zero or One Artwork Photo
 ```
+
+A COLLECTION artwork has exactly one artwork photo. A WATCHLIST artwork has zero or one.
 
 Rules:
 
