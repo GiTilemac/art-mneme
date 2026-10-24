@@ -115,6 +115,35 @@ User
 
 ---
 
+# Session
+
+A logged-in session of a user. The browser holds a random token in the `session` cookie; the table stores only a hash of it.
+
+## Table
+
+```text
+Session
+-------
+id (PK)
+
+user_id (FK, required)
+token_hash (required, unique)
+expires_at (timestamp with time zone, required)
+
+created_at
+```
+
+---
+
+## Relationships
+
+```text
+User
+1 → N Session
+```
+
+---
+
 # Artwork
 
 Central domain entity.
