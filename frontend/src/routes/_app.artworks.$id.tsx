@@ -16,7 +16,7 @@ import { ArtworkThumb } from "@/components/artmneme/artwork-card";
 import { PhotoButton } from "@/components/artmneme/photo-button";
 import { useEntities, usePhotoUrl } from "@/hooks/use-artmneme";
 import * as api from "@/lib/api";
-import { artworkState, canBeDiscoverable, formatDate, type Artwork } from "@/lib/domain";
+import { canBeDiscoverable, formatDate, type Artwork } from "@/lib/domain";
 
 export const Route = createFileRoute("/_app/artworks/$id")({
   head: () => ({
@@ -92,7 +92,7 @@ function ArtworkPage() {
       toast.error((e as Error).message);
     }
   };
-  const state = artworkState(a);
+  const state = a.state;
 
   if (editing)
     return (
@@ -121,9 +121,12 @@ function ArtworkPage() {
     <div className="grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <div className="space-y-4">
         <MainPhoto photoId={a.photoId} />
-        <PhotoButton variant={a.photoId ? "outline" : "default"} size="sm" onPhoto={(b) => run(() => api.setArtworkPhoto(a.id, b), a.photoId ? "Photo replaced" : "Moved to your collection")}>
-          {a.photoId ? "Replace photo" : "I've seen it — add photo"}
+        <PhotoButton variant={state === "COLLECTION" ? "outline" : "default"} size="sm" onPhoto={(b) => run(() => api.setArtworkPhoto(a.id, b), state === "COLLECTION" ? "Photo replaced" : "Moved to your collection")}>
+          {state === "COLLECTION" ? "Replace photo" : "I've seen it — add my photo"}
         </PhotoButton>
+        {state === "WATCHLIST" && a.photoId && (
+          <p className="text-xs text-muted-foreground">Adding your own photo moves it to your collection and replaces this one.</p>
+        )}
       </div>
 
       <div>

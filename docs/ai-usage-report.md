@@ -154,6 +154,17 @@ docs/database-schema.md
 docs/tasks.md
 ```
 
+Frontend photo rules:
+
+- At the project owner's request, Claude changed the Lovable frontend in `frontend/` to follow the new photo rules: the artwork state is stored instead of derived from the photo, new artworks choose Collection (default) or Watchlist, and collecting a watchlist artwork replaces its old photo.
+- Claude added tests for the rule that a collection artwork needs a photo.
+
+Recorded in:
+
+```text
+frontend/src
+```
+
 ---
 
 # AI Contributions

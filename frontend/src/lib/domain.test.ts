@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { canBeDiscoverable, formatDate, isDuplicate, validatePassword, validateTag } from "./domain";
+import { canBeDiscoverable, formatDate, isDuplicate, validateNewArtwork, validatePassword, validateTag } from "./domain";
 
 const d = (fromYear: number, o: Partial<{ toYear: number; circa: boolean; bc: boolean }> = {}) => ({
   fromYear,
@@ -45,4 +45,11 @@ describe("discoverability", () => {
     expect(canBeDiscoverable({ title: "X", artistId: null, date: d(1) })).toBe(false);
     expect(canBeDiscoverable({ title: "X", artistId: "a", date: null })).toBe(false);
   });
+});
+
+describe("new artwork state", () => {
+  it("refuses a collection artwork without a photo", () => expect(validateNewArtwork("COLLECTION", false)).not.toBeNull());
+  it("accepts a collection artwork with a photo", () => expect(validateNewArtwork("COLLECTION", true)).toBeNull());
+  it("accepts a watchlist artwork without a photo", () => expect(validateNewArtwork("WATCHLIST", false)).toBeNull());
+  it("accepts a watchlist artwork with a photo", () => expect(validateNewArtwork("WATCHLIST", true)).toBeNull());
 });

@@ -29,6 +29,7 @@ export interface ArtworkInput {
 export interface Artwork extends ArtworkInput {
   id: string;
   ownerId: string;
+  state: ArtworkState;
   photoId: string | null;
   detailPhotoIds: string[];
   discoverable: boolean;
@@ -55,8 +56,10 @@ export const MAX_PHOTO_BYTES = 30 * 1024 * 1024;
 export const PHOTO_MAX_EDGE = 2500;
 export const TAG_SUGGESTION_MIN_USES = 2;
 
-export const artworkState = (a: Pick<Artwork, "photoId">): ArtworkState =>
-  a.photoId ? "COLLECTION" : "WATCHLIST";
+/** A collection artwork needs a photo; a watchlist artwork may have one or not. */
+export function validateNewArtwork(state: ArtworkState, hasPhoto: boolean): string | null {
+  return state === "COLLECTION" && !hasPhoto ? "Add a photo to put this artwork in your collection." : null;
+}
 
 export function formatDate(d: ArtworkDate | null): string {
   if (!d) return "";

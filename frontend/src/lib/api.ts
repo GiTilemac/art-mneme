@@ -5,13 +5,13 @@
  * keep the signatures so the UI does not change.
  */
 import {
-  artworkState,
   canBeDiscoverable,
   collapse,
   isDuplicate,
   normalizeName,
   PAGE_SIZE,
   TAG_SUGGESTION_MIN_USES,
+  validateNewArtwork,
   validatePassword,
   validateTag,
   yearSpan,
@@ -56,7 +56,12 @@ const wait = <T>(v: T, ms = 120) => new Promise<T>((r) => setTimeout(() => r(v),
 // ---------- storage ----------
 function load(): Db {
   const raw = localStorage.getItem(DB_KEY);
-  if (raw) return JSON.parse(raw) as Db;
+  if (raw) {
+    const db = JSON.parse(raw) as Db;
+    // Records saved before state was stored derived it from the photo.
+    db.artworks.forEach((a) => (a.state ??= a.photoId ? "COLLECTION" : "WATCHLIST"));
+    return db;
+  }
   const db = seed();
   save(db);
   return db;
@@ -213,7 +218,7 @@ export async function listArtworks(p: ListParams): Promise<Page<Artwork>> {
   const db = load();
   const name = (l: Entity[], id: string | null) => (id ? (l.find((e) => e.id === id)?.name ?? "") : "");
   const q = p.q ? normalizeName(p.q) : "";
-  let items = db.artworks.filter((a) => a.ownerId === userId && artworkState(a) === p.state);
+  let items = db.artworks.filter((a) => a.ownerId === userId && a.state === p.state);
   if (q)
     items = items.filter((a) =>
       [
@@ -265,8 +270,10 @@ export async function findDuplicates(input: ArtworkInput, excludeId?: string): P
   );
 }
 
-export async function createArtwork(input: ArtworkInput, photo?: Blob | null): Promise<Artwork> {
+export async function createArtwork(input: ArtworkInput, state: ArtworkState, photo?: Blob | null): Promise<Artwork> {
   const userId = me();
+  const invalid = validateNewArtwork(state, !!photo);
+  if (invalid) throw new Error(invalid);
   try {
     const photoId = photo ? await putPhoto(photo) : null;
     const db = load();
@@ -276,6 +283,7 @@ export async function createArtwork(input: ArtworkInput, photo?: Blob | null): P
       museum: collapse(input.museum),
       id: uid(),
       ownerId: userId,
+      state,
       photoId,
       detailPhotoIds: [],
       discoverable: false,
@@ -316,13 +324,14 @@ export async function deleteArtwork(id: string) {
   await Promise.all([a.photoId, ...a.detailPhotoIds].filter(Boolean).map((p) => removePhoto(p!)));
 }
 
-/** Uploading the main photo moves a watchlist artwork into the collection. */
+/** Uploading the main photo moves a watchlist artwork into the collection. Any old photo is deleted. */
 export async function setArtworkPhoto(id: string, photo: Blob): Promise<Artwork> {
   const photoId = await putPhoto(photo);
   const db = load();
   const a = own(db, id);
   const old = a.photoId;
-  if (!old) track(db, "watchlist_converted", a.ownerId);
+  if (a.state === "WATCHLIST") track(db, "watchlist_converted", a.ownerId);
+  a.state = "COLLECTION";
   a.photoId = photoId;
   save(db);
   if (old) await removePhoto(old);
@@ -391,8 +400,8 @@ export async function explore(p: ExploreParams): Promise<ExploreResult> {
   track(db, "exploration", userId);
   save(db);
   return wait({
-    collection: p.includeCollection ? mine.filter((a) => artworkState(a) === "COLLECTION") : [],
-    watchlist: p.includeWatchlist ? mine.filter((a) => artworkState(a) === "WATCHLIST") : [],
+    collection: p.includeCollection ? mine.filter((a) => a.state === "COLLECTION") : [],
+    watchlist: p.includeWatchlist ? mine.filter((a) => a.state === "WATCHLIST") : [],
     community: p.includeCommunity
       ? candidates
           .filter((a) => a.ownerId !== userId && a.discoverable)
@@ -453,6 +462,7 @@ function seed(): Db {
   ): Artwork => ({
     id: uid(),
     ownerId: "community",
+    state: "COLLECTION",
     title,
     artistId: id(artists, artist),
     date,
