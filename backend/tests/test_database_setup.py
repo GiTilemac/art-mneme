@@ -63,6 +63,30 @@ def test_tests_stop_when_test_database_is_the_development_database(engine, test_
     assert inspect(engine).get_table_names()  # the test database was not emptied
 
 
+def test_tests_stop_when_development_url_names_the_test_database_with_another_host_spelling(engine, test_database_url):
+    url = make_url(test_database_url)
+    other_host = "127.0.0.1" if url.host == "localhost" else "localhost"
+    result = run_tests(DATABASE_URL=url.set(host=other_host).render_as_string(hide_password=False))
+    assert result.returncode != 0
+    assert "point to the same database" in result.stdout + result.stderr
+    assert inspect(engine).get_table_names()  # the test database was not emptied
+
+
+def test_tests_stop_when_development_database_cannot_be_reached(engine, test_database_url):
+    unreachable = make_url(test_database_url).set(port=1).render_as_string(hide_password=False)
+    result = run_tests(DATABASE_URL=unreachable)
+    assert result.returncode != 0
+    assert "Cannot connect to the database in DATABASE_URL" in result.stdout + result.stderr
+    assert inspect(engine).get_table_names()  # the test database was not emptied
+
+
+def test_tests_fail_with_a_clear_message_when_test_database_url_is_malformed():
+    result = run_tests(TEST_DATABASE_URL="notaurl")
+    assert result.returncode != 0
+    assert "Cannot connect to the test database in TEST_DATABASE_URL" in result.stdout + result.stderr
+    assert "INTERNALERROR" not in result.stdout + result.stderr
+
+
 def test_tests_fail_with_a_clear_message_when_test_database_cannot_be_reached(test_database_url):
     unreachable = make_url(test_database_url).set(port=1).render_as_string(hide_password=False)
     result = run_tests(TEST_DATABASE_URL=unreachable)

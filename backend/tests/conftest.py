@@ -13,15 +13,27 @@ from pathlib import Path
 
 import pytest
 from sqlalchemy import create_engine, inspect, text
-from sqlalchemy.engine import make_url
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import ArgumentError, OperationalError
 
 BACKEND = Path(__file__).parent.parent
 
 
-def same_database(first: str, second: str) -> bool:
-    first, second = make_url(first), make_url(second)
-    return (first.host, first.port or 5432, first.database) == (second.host, second.port or 5432, second.database)
+def database_identity(url: str) -> tuple:
+    """What the server reports about itself and the database, however its address is written.
+
+    Only reads, in a read-only session, so it is safe on the development database.
+    """
+    engine = create_engine(url, connect_args={"options": "-c default_transaction_read_only=on"})
+    try:
+        with engine.connect() as connection:
+            return connection.execute(
+                text(
+                    "SELECT (SELECT system_identifier FROM pg_control_system()), d.oid "
+                    "FROM pg_database d WHERE d.datname = current_database()"
+                )
+            ).one()
+    finally:
+        engine.dispose()
 
 
 def empty_database(url: str) -> None:
@@ -47,17 +59,27 @@ def pytest_sessionstart(session):
     url = os.environ.get("TEST_DATABASE_URL")
     if not url:
         pytest.exit("TEST_DATABASE_URL is not set. Set it to the test database address, see README.md.", returncode=1)
-    development_url = os.environ.get("DATABASE_URL")
-    if development_url and same_database(url, development_url):
-        pytest.exit(
-            "TEST_DATABASE_URL and DATABASE_URL point to the same database. "
-            "The tests delete everything in their database, so they need a separate one.",
-            returncode=1,
-        )
     try:
-        empty_database(url)
-    except OperationalError as error:
-        pytest.exit(f"Cannot connect to the test database in TEST_DATABASE_URL: {error.orig}", returncode=1)
+        test_identity = database_identity(url)
+    except (ArgumentError, ValueError, OperationalError) as error:
+        pytest.exit(f"Cannot connect to the test database in TEST_DATABASE_URL: {getattr(error, 'orig', error)}", returncode=1)
+    development_url = os.environ.get("DATABASE_URL")
+    if development_url:
+        try:
+            development_identity = database_identity(development_url)
+        except (ArgumentError, ValueError, OperationalError) as error:
+            pytest.exit(
+                "Cannot connect to the database in DATABASE_URL to check that it is not the test database: "
+                f"{getattr(error, 'orig', error)}. Fix DATABASE_URL or unset it before running the tests.",
+                returncode=1,
+            )
+        if development_identity == test_identity:
+            pytest.exit(
+                "TEST_DATABASE_URL and DATABASE_URL point to the same database. "
+                "The tests delete everything in their database, so they need a separate one.",
+                returncode=1,
+            )
+    empty_database(url)
     result = run_schema_command(url)
     if result.returncode != 0:
         pytest.exit(f"The schema command failed on the test database:\n{result.stderr}", returncode=1)
