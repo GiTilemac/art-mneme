@@ -191,6 +191,21 @@ frontend/src/services
 frontend/package.json
 ```
 
+Empty backend (backlog task 1, GitHub issue #1):
+
+- The project owner groomed the task and approved its acceptance criteria, including the dependencies (`fastapi`, `uvicorn`, and `pytest` and `httpx` for tests) and keeping FastAPI's documentation pages under `/api`.
+- Claude added `GET /health` to `openapi.yaml`, set up the Python 3.13 project in `backend/` with `uv`, wrote the FastAPI application with `GET /api/health` and 5 tests, and added the backend's install, start and test commands to `README.md`.
+- Claude checked the behaviour by running the tests and by starting the server and calling it with `curl`.
+
+Recorded in:
+
+```text
+openapi.yaml
+backend/
+README.md
+docs/tasks.md
+```
+
 ---
 
 # AI Contributions
