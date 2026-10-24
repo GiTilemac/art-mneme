@@ -206,6 +206,21 @@ README.md
 docs/tasks.md
 ```
 
+Database schema and seed data (backlog task 2, GitHub issue #2):
+
+- The project owner groomed the task and approved its acceptance criteria, including the dependencies (`sqlalchemy`, `alembic`, `psycopg[binary]`), the rules the database enforces, and the change to "Zero or One Artwork Photo" in `product-spec.md`.
+- Claude wrote the backend's database connection module, one Alembic migration that creates the v1 schema and seeds the 16 movements (`uv run alembic upgrade head`), and tests that run against a separate test database; added the PostgreSQL set-up, the environment variables and the schema command to `README.md`; and recorded the decided rules in `docs/database-schema.md`.
+- Claude checked that the schema command and the tests stop with a message naming the missing variable. The full test suite and the schema command against the development database have not been run yet: the local databases did not exist yet.
+
+Recorded in:
+
+```text
+backend/
+README.md
+docs/database-schema.md
+product-spec.md
+```
+
 ---
 
 # AI Contributions
