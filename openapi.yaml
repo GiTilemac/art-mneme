@@ -7,7 +7,7 @@ info:
     Personal artwork collection and exploration platform.
 
     Every endpoint needs a logged-in user (session cookie), except
-    `POST /auth/register` and `POST /auth/login`.
+    `POST /auth/register`, `POST /auth/login` and `GET /health`.
 
     Another user's artwork behaves as if it does not exist: requests for it
     return 404.
@@ -34,6 +34,24 @@ security:
   - sessionCookie: []
 
 paths:
+
+  /health:
+    get:
+      summary: Health check
+      description: Reports that the API is running.
+      security: []
+      responses:
+        "200":
+          description: The API is running.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
 
   /auth/register:
     post:
