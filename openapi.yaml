@@ -6,8 +6,16 @@ info:
   description: |
     Personal artwork collection and exploration platform.
 
+    Every endpoint needs a logged-in user (session cookie), except
+    `POST /auth/register` and `POST /auth/login`.
+
+    Another user's artwork behaves as if it does not exist: requests for it
+    return 404.
+
+    Lists are paginated at 50 items per page.
+
 servers:
-  - url: https://api.example.com
+  - url: /api
 
 tags:
   - name: Authentication
@@ -22,25 +30,1007 @@ tags:
   - name: Subjects
   - name: Tags
 
+security:
+  - sessionCookie: []
+
 paths:
 
   /auth/register:
     post:
       tags: [Authentication]
       summary: Register user
+      description: Creates the account and logs the user in.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "201":
+          description: Account created; the response sets the session cookie.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetSessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "409":
+          description: An account with this email already exists.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/Invalid"
 
   /auth/login:
     post:
       tags: [Authentication]
       summary: Login user
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Credentials"
+      responses:
+        "200":
+          description: Logged in; the response sets the session cookie.
+          headers:
+            Set-Cookie:
+              $ref: "#/components/headers/SetSessionCookie"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          description: Email or password is incorrect.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
   /auth/logout:
     post:
       tags: [Authentication]
       summary: Logout user
+      responses:
+        "204":
+          description: Logged out; the session cookie is cleared.
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
 
   /auth/me:
     get:
       tags: [Authentication]
       summary: Get current user
+      description: Using the session renews it for another 30 days.
+      responses:
+        "200":
+          description: The logged-in user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/User"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
 
+  /artists:
+    get:
+      tags: [Artists]
+      summary: Search artists by name
+      parameters:
+        - $ref: "#/components/parameters/NameQuery"
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: Matching artists, sorted by name.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityPage"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+    post:
+      tags: [Artists]
+      summary: Create an artist, or return the existing one
+      requestBody:
+        $ref: "#/components/requestBodies/NewEntity"
+      responses:
+        "200":
+          $ref: "#/components/responses/EntityExisting"
+        "201":
+          $ref: "#/components/responses/EntityCreated"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "422":
+          $ref: "#/components/responses/Invalid"
+
+  /movements:
+    get:
+      tags: [Movements]
+      summary: Search movements by name
+      parameters:
+        - $ref: "#/components/parameters/NameQuery"
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: Matching movements, sorted by name.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityPage"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+    post:
+      tags: [Movements]
+      summary: Create a movement, or return the existing one
+      requestBody:
+        $ref: "#/components/requestBodies/NewEntity"
+      responses:
+        "200":
+          $ref: "#/components/responses/EntityExisting"
+        "201":
+          $ref: "#/components/responses/EntityCreated"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "422":
+          $ref: "#/components/responses/Invalid"
+
+  /subjects:
+    get:
+      tags: [Subjects]
+      summary: Search subjects by name
+      parameters:
+        - $ref: "#/components/parameters/NameQuery"
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: Matching subjects, sorted by name.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityPage"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+    post:
+      tags: [Subjects]
+      summary: Create a subject, or return the existing one
+      requestBody:
+        $ref: "#/components/requestBodies/NewEntity"
+      responses:
+        "200":
+          $ref: "#/components/responses/EntityExisting"
+        "201":
+          $ref: "#/components/responses/EntityCreated"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "422":
+          $ref: "#/components/responses/Invalid"
+
+  /tags:
+    post:
+      tags: [Tags]
+      summary: Create a tag, or return the existing one
+      description: |
+        Tags are case-insensitive and stored in lowercase. 2 to 50 characters:
+        letters, numbers, spaces and hyphens only.
+      requestBody:
+        $ref: "#/components/requestBodies/NewEntity"
+      responses:
+        "200":
+          $ref: "#/components/responses/EntityExisting"
+        "201":
+          $ref: "#/components/responses/EntityCreated"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "422":
+          $ref: "#/components/responses/Invalid"
+
+  /tags/suggestions:
+    get:
+      tags: [Tags]
+      summary: Suggest tags while typing
+      description: |
+        Most used tags first. Tags used on fewer than 2 artworks are left out.
+        Returns at most 10 tags.
+      parameters:
+        - $ref: "#/components/parameters/NameQuery"
+      responses:
+        "200":
+          description: Suggested tags.
+          content:
+            application/json:
+              schema:
+                type: array
+                maxItems: 10
+                items:
+                  $ref: "#/components/schemas/Entity"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+
+  /artworks:
+    get:
+      tags: [Artworks, Watchlist, Search]
+      summary: List, search and filter my artworks
+      description: |
+        Only the user's own artworks. Newest first.
+        `q` searches title, artist, subject, tags and museum, never notes.
+      parameters:
+        - name: state
+          in: query
+          required: true
+          schema:
+            $ref: "#/components/schemas/ArtworkState"
+        - name: q
+          in: query
+          schema:
+            type: string
+        - name: artist_id
+          in: query
+          schema:
+            type: integer
+        - name: movement_id
+          in: query
+          schema:
+            type: integer
+        - name: museum
+          in: query
+          schema:
+            type: string
+        - name: tag_ids
+          in: query
+          description: Artworks must carry all of these tags.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: integer
+        - name: from_year
+          in: query
+          description: Start of the date range. BC years are negative (450 BC = -450).
+          schema:
+            type: integer
+        - name: to_year
+          in: query
+          description: End of the date range. BC years are negative.
+          schema:
+            type: integer
+        - $ref: "#/components/parameters/Page"
+      responses:
+        "200":
+          description: One page of artworks.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ArtworkPage"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+    post:
+      tags: [Artworks]
+      summary: Create an artwork
+      description: |
+        Details, state and optional artwork photo in one request.
+        A COLLECTION artwork needs a photo; a WATCHLIST artwork may have one or not.
+        Every detail may be left empty and filled in later.
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [artwork]
+              properties:
+                artwork:
+                  $ref: "#/components/schemas/ArtworkInput"
+                state:
+                  $ref: "#/components/schemas/ArtworkState"
+                photo:
+                  $ref: "#/components/schemas/PhotoFile"
+            encoding:
+              artwork:
+                contentType: application/json
+              photo:
+                contentType: image/jpeg
+      responses:
+        "201":
+          description: Artwork created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "422":
+          description: Invalid input, e.g. a COLLECTION artwork without a photo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artworks/duplicates:
+    get:
+      tags: [Artworks]
+      summary: Find possible duplicates before saving
+      description: |
+        The user's own artworks (collection and watchlist) with the same title
+        (ignoring capital letters and extra spaces), the same artist and the
+        same date (same years, same Circa and BC choices).
+        Returns an empty list unless title, artist and date are all given.
+        Never blocks saving.
+      parameters:
+        - name: title
+          in: query
+          schema:
+            type: string
+        - name: artist_id
+          in: query
+          schema:
+            type: integer
+        - name: from_year
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: to_year
+          in: query
+          schema:
+            type: integer
+            minimum: 1
+        - name: circa
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: bc
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: exclude_id
+          in: query
+          description: Leave out this artwork, used while editing it.
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Possible duplicates; empty when there are none.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+
+  /artworks/{artwork_id}:
+    parameters:
+      - $ref: "#/components/parameters/ArtworkId"
+    get:
+      tags: [Artworks]
+      summary: Get one of my artworks
+      responses:
+        "200":
+          description: The artwork.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Artworks]
+      summary: Edit details, notes and tags
+      description: Only the fields sent are changed. The state cannot be changed here.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ArtworkInput"
+      responses:
+        "200":
+          description: The updated artwork.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Invalid"
+    delete:
+      tags: [Artworks]
+      summary: Delete an artwork
+      description: Permanently deletes the artwork, its photos (including the stored files) and its tag links.
+      responses:
+        "204":
+          description: Deleted.
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /artworks/{artwork_id}/photo:
+    parameters:
+      - $ref: "#/components/parameters/ArtworkId"
+    put:
+      tags: [Photos, Watchlist]
+      summary: Add or replace the artwork photo
+      description: |
+        On a WATCHLIST artwork this moves it to COLLECTION; any old photo is deleted.
+        On a COLLECTION artwork the old photo is replaced and deleted.
+        There is no way to remove the artwork photo without a replacement.
+      requestBody:
+        $ref: "#/components/requestBodies/PhotoUpload"
+      responses:
+        "200":
+          description: The updated artwork.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Invalid"
+    get:
+      tags: [Photos]
+      summary: Get the artwork photo
+      description: Only the owner can get it.
+      responses:
+        "200":
+          $ref: "#/components/responses/Photo"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          description: Not found, or the artwork has no photo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artworks/{artwork_id}/detail-photos:
+    parameters:
+      - $ref: "#/components/parameters/ArtworkId"
+    post:
+      tags: [Photos]
+      summary: Add a detail photo
+      requestBody:
+        $ref: "#/components/requestBodies/PhotoUpload"
+      responses:
+        "201":
+          description: The updated artwork, including the new detail photo.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Invalid"
+
+  /artworks/{artwork_id}/detail-photos/{photo_id}:
+    parameters:
+      - $ref: "#/components/parameters/ArtworkId"
+      - name: photo_id
+        in: path
+        required: true
+        schema:
+          type: integer
+    get:
+      tags: [Photos]
+      summary: Get a detail photo
+      description: Only the owner can get it.
+      responses:
+        "200":
+          $ref: "#/components/responses/Photo"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+    delete:
+      tags: [Photos]
+      summary: Delete a detail photo
+      description: Also deletes the stored file.
+      responses:
+        "200":
+          description: The updated artwork.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /artworks/{artwork_id}/discoverable:
+    parameters:
+      - $ref: "#/components/parameters/ArtworkId"
+    put:
+      tags: [Discoverability]
+      summary: Make the artwork discoverable, or private again
+      description: |
+        Turning it on is refused unless title, artist and date are all set.
+        A photo is not required. Photos are never shown to other users.
+      requestBody:
+        $ref: "#/components/requestBodies/Switch"
+      responses:
+        "200":
+          description: The updated artwork.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          description: Title, artist or date is missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /artworks/{artwork_id}/notes-discoverable:
+    parameters:
+      - $ref: "#/components/parameters/ArtworkId"
+    put:
+      tags: [Discoverability]
+      summary: Make the notes discoverable, or private again
+      requestBody:
+        $ref: "#/components/requestBodies/Switch"
+      responses:
+        "200":
+          description: The updated artwork.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Artwork"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /artworks/{artwork_id}/related:
+    parameters:
+      - $ref: "#/components/parameters/ArtworkId"
+    get:
+      tags: [Exploration]
+      summary: Explore related artworks
+      description: |
+        Artworks with the same artist, subject, movement or museum as this one,
+        or carrying all of the chosen tags.
+        Collection results by default; watchlist and community only when asked.
+        Community results come only from other users' discoverable artworks and
+        never contain photos or private notes.
+      parameters:
+        - name: by
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [artist, subject, movement, museum, tags]
+        - name: tag_ids
+          in: query
+          description: Required when `by` is `tags`. Results must carry all of them.
+          style: form
+          explode: true
+          schema:
+            type: array
+            items:
+              type: integer
+        - name: include_collection
+          in: query
+          schema:
+            type: boolean
+            default: true
+        - name: include_watchlist
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: include_community
+          in: query
+          schema:
+            type: boolean
+            default: false
+      responses:
+        "200":
+          description: Related artworks, grouped by source.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RelatedArtworks"
+        "401":
+          $ref: "#/components/responses/NotLoggedIn"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "422":
+          $ref: "#/components/responses/Invalid"
+
+components:
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: session
+      description: Session cookie set at login. Lasts 30 days, renewed on each use.
+
+  headers:
+    SetSessionCookie:
+      description: The session cookie (HttpOnly).
+      schema:
+        type: string
+
+  parameters:
+    ArtworkId:
+      name: artwork_id
+      in: path
+      required: true
+      schema:
+        type: integer
+    NameQuery:
+      name: q
+      in: query
+      description: Text the name contains, ignoring capital letters.
+      schema:
+        type: string
+    Page:
+      name: page
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        default: 1
+
+  requestBodies:
+    NewEntity:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [name]
+            properties:
+              name:
+                type: string
+                minLength: 1
+    PhotoUpload:
+      required: true
+      content:
+        multipart/form-data:
+          schema:
+            type: object
+            required: [photo]
+            properties:
+              photo:
+                $ref: "#/components/schemas/PhotoFile"
+          encoding:
+            photo:
+              contentType: image/jpeg
+    Switch:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required: [value]
+            properties:
+              value:
+                type: boolean
+
+  responses:
+    NotLoggedIn:
+      description: Not logged in, or the session has expired.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Not found, or it belongs to another user.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Invalid:
+      description: The input breaks a rule; `detail` says which.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    EntityExisting:
+      description: An entry with this name already exists (ignoring capital letters); it is returned instead.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Entity"
+    EntityCreated:
+      description: Created.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Entity"
+    Photo:
+      description: The photo.
+      content:
+        image/jpeg:
+          schema:
+            type: string
+            contentMediaType: image/jpeg
+
+  schemas:
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+          description: A message that can be shown to the user.
+
+    Credentials:
+      type: object
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          minLength: 8
+
+    User:
+      type: object
+      required: [id, email]
+      properties:
+        id:
+          type: integer
+        email:
+          type: string
+          format: email
+
+    Entity:
+      description: An artist, movement, subject or tag. Shared by all users; cannot be edited or deleted.
+      type: object
+      required: [id, name]
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+
+    EntityPage:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entity"
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+          const: 50
+
+    ArtworkState:
+      type: string
+      enum: [COLLECTION, WATCHLIST]
+      default: COLLECTION
+
+    PhotoFile:
+      description: JPEG, already shrunk in the browser to about 2,500 pixels on the longest side.
+      type: string
+      contentMediaType: image/jpeg
+
+    ArtworkDateInput:
+      description: 'Examples: 1642; 1600–1605; c. 1600; c. 450 BC.'
+      type: object
+      required: [from_year]
+      properties:
+        from_year:
+          type: integer
+          minimum: 1
+        to_year:
+          type: [integer, "null"]
+          minimum: 1
+        circa:
+          type: boolean
+          default: false
+        bc:
+          type: boolean
+          default: false
+
+    ArtworkDate:
+      allOf:
+        - $ref: "#/components/schemas/ArtworkDateInput"
+        - type: object
+          required: [display]
+          properties:
+            display:
+              type: string
+              description: Generated from the fields, e.g. "c. 450 BC".
+
+    ArtworkInput:
+      description: Every field may be left empty. In PATCH, only the fields sent are changed.
+      type: object
+      properties:
+        title:
+          type: string
+        artist_id:
+          type: [integer, "null"]
+        date:
+          oneOf:
+            - $ref: "#/components/schemas/ArtworkDateInput"
+            - type: "null"
+        subject_id:
+          type: [integer, "null"]
+        movement_id:
+          type: [integer, "null"]
+        museum:
+          type: string
+          description: Free text; where the user saw the artwork.
+        tag_ids:
+          type: array
+          items:
+            type: integer
+        notes:
+          type: string
+
+    Artwork:
+      description: One of the user's own artworks.
+      type: object
+      required:
+        - id
+        - state
+        - title
+        - artist
+        - date
+        - subject
+        - movement
+        - museum
+        - tags
+        - notes
+        - has_photo
+        - detail_photo_ids
+        - is_discoverable
+        - are_notes_discoverable
+        - created_at
+      properties:
+        id:
+          type: integer
+        state:
+          $ref: "#/components/schemas/ArtworkState"
+        title:
+          type: string
+        artist:
+          oneOf:
+            - $ref: "#/components/schemas/Entity"
+            - type: "null"
+        date:
+          oneOf:
+            - $ref: "#/components/schemas/ArtworkDate"
+            - type: "null"
+        subject:
+          oneOf:
+            - $ref: "#/components/schemas/Entity"
+            - type: "null"
+        movement:
+          oneOf:
+            - $ref: "#/components/schemas/Entity"
+            - type: "null"
+        museum:
+          type: string
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entity"
+        notes:
+          type: string
+        has_photo:
+          type: boolean
+          description: True when the artwork photo exists; get it from /artworks/{artwork_id}/photo.
+        detail_photo_ids:
+          type: array
+          description: Get each from /artworks/{artwork_id}/detail-photos/{photo_id}.
+          items:
+            type: integer
+        is_discoverable:
+          type: boolean
+          default: false
+        are_notes_discoverable:
+          type: boolean
+          default: false
+        created_at:
+          type: string
+          format: date-time
+
+    ArtworkPage:
+      type: object
+      required: [items, total, page, page_size]
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/Artwork"
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+          const: 50
+
+    CommunityArtwork:
+      description: What other users may see. Never contains photos; notes only when shared.
+      type: object
+      required: [id, title, artist, date, subject, movement, museum, tags, notes]
+      properties:
+        id:
+          type: integer
+        title:
+          type: string
+        artist:
+          oneOf:
+            - $ref: "#/components/schemas/Entity"
+            - type: "null"
+        date:
+          oneOf:
+            - $ref: "#/components/schemas/ArtworkDate"
+            - type: "null"
+        subject:
+          oneOf:
+            - $ref: "#/components/schemas/Entity"
+            - type: "null"
+        movement:
+          oneOf:
+            - $ref: "#/components/schemas/Entity"
+            - type: "null"
+        museum:
+          type: string
+        tags:
+          type: array
+          items:
+            $ref: "#/components/schemas/Entity"
+        notes:
+          type: [string, "null"]
+          description: Null unless the owner made the notes discoverable.
+
+    RelatedArtworks:
+      type: object
+      required: [collection, watchlist, community]
+      properties:
+        collection:
+          type: array
+          description: Empty unless include_collection is true.
+          items:
+            $ref: "#/components/schemas/Artwork"
+        watchlist:
+          type: array
+          description: Empty unless include_watchlist is true.
+          items:
+            $ref: "#/components/schemas/Artwork"
+        community:
+          type: array
+          description: Empty unless include_community is true.
+          items:
+            $ref: "#/components/schemas/CommunityArtwork"

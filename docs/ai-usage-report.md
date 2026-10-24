@@ -165,6 +165,19 @@ Recorded in:
 frontend/src
 ```
 
+API contract:
+
+- At the project owner's request, Claude read the frontend's API client and proposed the endpoints the backend needs, explaining the choices in plain terms.
+- The project owner decided: extend the existing `openapi.yaml` and keep its auth paths; define every endpoint now, so backlog tasks implement them; search with pages for artists, movements and subjects; the duplicate check runs before saving only; discoverability has its own endpoints; usage metrics are recorded by the backend; creating an existing name returns the existing entry; an artwork is created with its photo in one request; photos are served through the backend in v1 (loaded from the device in the future local-photos feature); exploration is one endpoint with a `by` option.
+- Claude wrote the full contract in `openapi.yaml` and updated the backlog wording to match.
+
+Recorded in:
+
+```text
+openapi.yaml
+docs/tasks.md
+```
+
 ---
 
 # AI Contributions

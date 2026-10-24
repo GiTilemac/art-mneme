@@ -72,6 +72,14 @@ Transform tasks into verifiable goals.
 - `uv run pytest` - the whole suite
 - `uv run pytest tests/test_home.py` - one test file
 
+for backend, use uv for dependency management. a few useful commands:
+
+  uv sync
+  uv add <PACKAGE-NAME>
+  uv run python <PYTHON-FILE>
+
+  regularly commit code to git 
+
 ## Rules
 
 - Dependencies are added in `pyproject.toml`. Do not add one without
