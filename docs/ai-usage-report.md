@@ -178,6 +178,19 @@ openapi.yaml
 docs/tasks.md
 ```
 
+Frontend services layer:
+
+- At the project owner's request, Claude checked whether the frontend kept every backend call in one services layer with a mock behind it. All calls were in one file, but that file was itself the mock, it had no tests, and it no longer matched `openapi.yaml`.
+- The project owner decided to reshape the layer to match `openapi.yaml` and approved `fake-indexeddb` as a test-only dependency.
+- Claude split the layer into `frontend/src/services/` (the list of actions, the browser mock, and the switch between them), updated the screens to use it, and added 30 tests for the mock.
+
+Recorded in:
+
+```text
+frontend/src/services
+frontend/package.json
+```
+
 ---
 
 # AI Contributions

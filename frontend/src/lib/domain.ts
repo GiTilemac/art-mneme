@@ -26,11 +26,23 @@ export interface ArtworkInput {
   notes: string;
 }
 
-export interface Artwork extends ArtworkInput {
+/** The editable fields with their entries resolved, as the artwork form shows them. */
+export interface ArtworkDraft {
+  title: string;
+  artist: Entity | null;
+  date: ArtworkDate | null;
+  subject: Entity | null;
+  movement: Entity | null;
+  museum: string;
+  tags: Entity[];
+  notes: string;
+}
+
+/** One of the user's own artworks. */
+export interface Artwork extends ArtworkDraft {
   id: string;
-  ownerId: string;
   state: ArtworkState;
-  photoId: string | null;
+  hasPhoto: boolean;
   detailPhotoIds: string[];
   discoverable: boolean;
   notesDiscoverable: boolean;
@@ -38,15 +50,8 @@ export interface Artwork extends ArtworkInput {
 }
 
 /** What other users may see. Never contains photos; notes only when shared. */
-export interface CommunityArtwork {
+export interface CommunityArtwork extends Omit<ArtworkDraft, "notes"> {
   id: string;
-  title: string;
-  artistId: string | null;
-  date: ArtworkDate | null;
-  subjectId: string | null;
-  movementId: string | null;
-  museum: string;
-  tagIds: string[];
   notes: string | null;
 }
 
@@ -117,13 +122,24 @@ export function isDuplicate(
   );
 }
 
-export const emptyInput = (): ArtworkInput => ({
+export const emptyDraft = (): ArtworkDraft => ({
   title: "",
-  artistId: null,
+  artist: null,
   date: null,
-  subjectId: null,
-  movementId: null,
+  subject: null,
+  movement: null,
   museum: "",
-  tagIds: [],
+  tags: [],
   notes: "",
+});
+
+export const toInput = (d: ArtworkDraft): ArtworkInput => ({
+  title: d.title,
+  artistId: d.artist?.id ?? null,
+  date: d.date,
+  subjectId: d.subject?.id ?? null,
+  movementId: d.movement?.id ?? null,
+  museum: d.museum,
+  tagIds: d.tags.map((t) => t.id),
+  notes: d.notes,
 });

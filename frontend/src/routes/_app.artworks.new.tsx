@@ -5,8 +5,8 @@ import { toast } from "sonner";
 import { ArtworkForm } from "@/components/artmneme/artwork-form";
 import { PhotoButton } from "@/components/artmneme/photo-button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import * as api from "@/lib/api";
-import { emptyInput, validateNewArtwork, type ArtworkInput, type ArtworkState } from "@/lib/domain";
+import { api } from "@/services";
+import { emptyDraft, validateNewArtwork, type ArtworkDraft, type ArtworkState } from "@/lib/domain";
 
 export const Route = createFileRoute("/_app/artworks/new")({
   validateSearch: (s: Record<string, unknown>): { from?: string | undefined } => ({ from: typeof s["from"] === "string" ? s["from"] : undefined }),
@@ -32,11 +32,11 @@ function NewArtwork() {
   const [state, setState] = useState<ArtworkState>(from ? "WATCHLIST" : "COLLECTION");
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [initial, setInitial] = useState<ArtworkInput | null>(null);
+  const [initial, setInitial] = useState<ArtworkDraft | null>(null);
 
   useEffect(() => {
     const raw = from ? sessionStorage.getItem(PREFILL_KEY) : null;
-    setInitial(raw ? { ...emptyInput(), ...(JSON.parse(raw) as Partial<ArtworkInput>) } : emptyInput());
+    setInitial(raw ? { ...emptyDraft(), ...(JSON.parse(raw) as Partial<ArtworkDraft>) } : emptyDraft());
   }, [from]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
 

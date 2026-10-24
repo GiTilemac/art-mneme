@@ -5,38 +5,45 @@ import { LayoutGrid, List, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { ArtworkCard } from "./artwork-card";
+import { EntityPicker } from "./entity-picker";
 import { TagInput } from "./tag-input";
-import { useEntities } from "@/hooks/use-artmneme";
-import * as api from "@/lib/api";
-import type { ArtworkState } from "@/lib/domain";
+import { api } from "@/services";
+import type { ArtworkState, Entity } from "@/lib/domain";
 
 export interface BrowseSearch {
   q?: string | undefined;
   view?: "grid" | "list" | undefined;
   page?: number | undefined;
-  artist?: string | undefined;
-  movement?: string | undefined;
+  artist?: Entity | undefined;
+  movement?: Entity | undefined;
   museum?: string | undefined;
-  tags?: string | undefined;
+  tags?: Entity[] | undefined;
   from?: number | undefined;
   to?: number | undefined;
 }
 
 const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
+const entity = (v: unknown): Entity | undefined => {
+  const e = v as Partial<Entity> | null;
+  return typeof e?.id === "string" && typeof e.name === "string" ? { id: e.id, name: e.name } : undefined;
+};
+const entities = (v: unknown) => {
+  const list = Array.isArray(v) ? v.map(entity).filter((e): e is Entity => !!e) : [];
+  return list.length ? list : undefined;
+};
 const num = (v: unknown) => (v === "" || v == null || isNaN(Number(v)) ? undefined : Number(v));
 export const parseBrowseSearch = (s: Record<string, unknown>): BrowseSearch => ({
   q: str(s["q"]),
   view: s["view"] === "list" ? "list" : undefined,
   page: num(s["page"]),
-  artist: str(s["artist"]),
-  movement: str(s["movement"]),
+  artist: entity(s["artist"]),
+  movement: entity(s["movement"]),
   museum: str(s["museum"]),
-  tags: str(s["tags"]),
+  tags: entities(s["tags"]),
   from: num(s["from"]),
   to: num(s["to"]),
 });
 
-const selectCls = "h-9 w-full rounded-md border border-input bg-card px-2 text-sm";
 
 export function ArtworkBrowser({
   state,
@@ -47,9 +54,8 @@ export function ArtworkBrowser({
   search: BrowseSearch;
   onChange: (patch: Partial<BrowseSearch>) => void;
 }) {
-  const ent = useEntities();
   const [showFilters, setShowFilters] = useState(false);
-  const tagIds = search.tags ? search.tags.split(",") : [];
+  const tags = search.tags ?? [];
   const page = search.page ?? 1;
   const view = search.view ?? "grid";
   const set = (p: Partial<BrowseSearch>) => onChange({ ...p, page: undefined });
@@ -60,10 +66,10 @@ export function ArtworkBrowser({
       api.listArtworks({
         state,
         q: search.q,
-        artistId: search.artist,
-        movementId: search.movement,
+        artistId: search.artist?.id,
+        movementId: search.movement?.id,
         museum: search.museum,
-        tagIds,
+        tagIds: tags.map((t) => t.id),
         fromYear: search.from,
         toYear: search.to,
         page,
@@ -87,18 +93,12 @@ export function ArtworkBrowser({
 
       {showFilters && (
         <div className="mt-4 grid gap-4 rounded-md border bg-card p-4 sm:grid-cols-2 lg:grid-cols-3">
-          <label className="space-y-1"><span className="eyebrow">Artist</span>
-            <select className={selectCls} value={search.artist ?? ""} onChange={(e) => set({ artist: e.target.value || undefined })}>
-              <option value="">Any</option>
-              {ent.artists.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </label>
-          <label className="space-y-1"><span className="eyebrow">Movement</span>
-            <select className={selectCls} value={search.movement ?? ""} onChange={(e) => set({ movement: e.target.value || undefined })}>
-              <option value="">Any</option>
-              {ent.movements.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
-            </select>
-          </label>
+          <div className="space-y-1"><span className="eyebrow">Artist</span>
+            <EntityPicker kind="artists" allowCreate={false} value={search.artist ?? null} onChange={(e) => set({ artist: e ?? undefined })} placeholder="Any" />
+          </div>
+          <div className="space-y-1"><span className="eyebrow">Movement</span>
+            <EntityPicker kind="movements" allowCreate={false} value={search.movement ?? null} onChange={(e) => set({ movement: e ?? undefined })} placeholder="Any" />
+          </div>
           <label className="space-y-1"><span className="eyebrow">Museum</span>
             <Input defaultValue={search.museum} onChange={(e) => set({ museum: e.target.value || undefined })} />
           </label>
@@ -111,7 +111,7 @@ export function ArtworkBrowser({
             <p className="text-xs text-muted-foreground">Use negative years for BC.</p>
           </div>
           <div className="space-y-1 sm:col-span-2"><span className="eyebrow">Tags (all must match)</span>
-            <TagInput allowCreate={false} value={tagIds} onChange={(ids) => set({ tags: ids.length ? ids.join(",") : undefined })} />
+            <TagInput allowCreate={false} value={tags} onChange={(t) => set({ tags: t.length ? t : undefined })} />
           </div>
         </div>
       )}

@@ -3,7 +3,7 @@ import { useState, type FormEvent } from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
-import * as api from "@/lib/api";
+import { api } from "@/services";
 import { MIN_PASSWORD_LENGTH } from "@/lib/domain";
 
 export const Route = createFileRoute("/auth")({
@@ -36,7 +36,7 @@ function AuthPage() {
     setBusy(true);
     setError(null);
     try {
-      await (signup ? api.signUp : api.signIn)(email, password);
+      await (signup ? api.register : api.login)(email, password);
       navigate({ to: redirect ?? "/collection" });
     } catch (err) {
       setError((err as Error).message);

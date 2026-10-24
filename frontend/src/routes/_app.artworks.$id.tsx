@@ -12,11 +12,10 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ArtworkForm } from "@/components/artmneme/artwork-form";
-import { ArtworkThumb } from "@/components/artmneme/artwork-card";
 import { PhotoButton } from "@/components/artmneme/photo-button";
-import { useEntities, usePhotoUrl } from "@/hooks/use-artmneme";
-import * as api from "@/lib/api";
-import { canBeDiscoverable, formatDate, type Artwork } from "@/lib/domain";
+import { usePhotoUrl } from "@/hooks/use-artmneme";
+import { api } from "@/services";
+import { canBeDiscoverable, formatDate, toInput, type Artwork } from "@/lib/domain";
 
 export const Route = createFileRoute("/_app/artworks/$id")({
   head: () => ({
@@ -30,8 +29,8 @@ export const Route = createFileRoute("/_app/artworks/$id")({
   component: ArtworkPage,
 });
 
-function MainPhoto({ photoId }: { photoId: string | null }) {
-  const url = usePhotoUrl(photoId);
+function MainPhoto({ a }: { a: Artwork }) {
+  const url = usePhotoUrl(a.hasPhoto ? () => api.getArtworkPhoto(a.id) : null, a);
   if (!url)
     return (
       <div className="flex aspect-[4/5] items-center justify-center rounded-sm bg-muted">
@@ -41,11 +40,14 @@ function MainPhoto({ photoId }: { photoId: string | null }) {
   return <img src={url} alt="" className="w-full rounded-sm" />;
 }
 
-function DetailPhoto({ photoId, onOpen, onDelete }: { photoId: string; onOpen: () => void; onDelete: () => void }) {
+function DetailPhoto({ artworkId, photoId, onOpen, onDelete }: { artworkId: string; photoId: string; onOpen: () => void; onDelete: () => void }) {
+  const url = usePhotoUrl(() => api.getDetailPhoto(artworkId, photoId), photoId);
   return (
     <div className="relative">
       <button type="button" onClick={onOpen} className="block w-full" aria-label="View detail photo">
-        <ArtworkThumb photoId={photoId} className="aspect-square rounded-sm" />
+        <div className="aspect-square overflow-hidden rounded-sm bg-muted">
+          {url && <img src={url} alt="" className="h-full w-full object-cover" />}
+        </div>
       </button>
       <button type="button" onClick={onDelete} aria-label="Delete detail photo" className="absolute right-1 top-1 rounded-full bg-background/90 p-1">
         <X className="size-3.5" />
@@ -54,8 +56,8 @@ function DetailPhoto({ photoId, onOpen, onDelete }: { photoId: string; onOpen: (
   );
 }
 
-function Viewer({ photoId, onClose }: { photoId: string | null; onClose: () => void }) {
-  const url = usePhotoUrl(photoId);
+function Viewer({ artworkId, photoId, onClose }: { artworkId: string; photoId: string | null; onClose: () => void }) {
+  const url = usePhotoUrl(photoId ? () => api.getDetailPhoto(artworkId, photoId) : null, photoId);
   return (
     <Dialog open={!!photoId} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-4xl p-2">
@@ -70,7 +72,6 @@ function ArtworkPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
   const navigate = useNavigate();
-  const ent = useEntities();
   const [editing, setEditing] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState("");
@@ -112,19 +113,19 @@ function ArtworkPage() {
     );
 
   const rows: [string, string][] = [
-    ["Subject", ent.subjectName(a.subjectId)],
-    ["Movement", ent.movementName(a.movementId)],
+    ["Subject", a.subject?.name ?? ""],
+    ["Movement", a.movement?.name ?? ""],
     ["Museum", a.museum],
   ];
 
   return (
     <div className="grid gap-12 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <div className="space-y-4">
-        <MainPhoto photoId={a.photoId} />
+        <MainPhoto a={a} />
         <PhotoButton variant={state === "COLLECTION" ? "outline" : "default"} size="sm" onPhoto={(b) => run(() => api.setArtworkPhoto(a.id, b), state === "COLLECTION" ? "Photo replaced" : "Moved to your collection")}>
           {state === "COLLECTION" ? "Replace photo" : "I've seen it — add my photo"}
         </PhotoButton>
-        {state === "WATCHLIST" && a.photoId && (
+        {state === "WATCHLIST" && a.hasPhoto && (
           <p className="text-xs text-muted-foreground">Adding your own photo moves it to your collection and replaces this one.</p>
         )}
       </div>
@@ -133,7 +134,7 @@ function ArtworkPage() {
         <p className="eyebrow">{state === "COLLECTION" ? "Collection" : "Watchlist"}</p>
         <h1 className="mt-2 text-5xl leading-tight">{a.title || "Untitled"}</h1>
         <p className="mt-2 text-lg text-muted-foreground">
-          {[ent.artistName(a.artistId), formatDate(a.date)].filter(Boolean).join(" · ") || "No artist or date yet"}
+          {[a.artist?.name, formatDate(a.date)].filter(Boolean).join(" · ") || "No artist or date yet"}
         </p>
 
         <dl className="mt-8 divide-y border-y">
@@ -145,9 +146,9 @@ function ArtworkPage() {
           ))}
         </dl>
 
-        {a.tagIds.length > 0 && (
+        {a.tags.length > 0 && (
           <div className="mt-5 flex flex-wrap gap-1.5">
-            {a.tagIds.map((t) => <span key={t} className="rounded-full bg-secondary px-2.5 py-0.5 text-xs">{ent.tagName(t)}</span>)}
+            {a.tags.map((t) => <span key={t.id} className="rounded-full bg-secondary px-2.5 py-0.5 text-xs">{t.name}</span>)}
           </div>
         )}
 
@@ -182,7 +183,7 @@ function ArtworkPage() {
           {a.detailPhotoIds.length ? (
             <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
               {a.detailPhotoIds.map((p) => (
-                <DetailPhoto key={p} photoId={p} onOpen={() => setViewing(p)} onDelete={() => run(() => api.deleteDetailPhoto(a.id, p))} />
+                <DetailPhoto key={p} artworkId={a.id} photoId={p} onOpen={() => setViewing(p)} onDelete={() => run(() => api.deleteDetailPhoto(a.id, p))} />
               ))}
             </div>
           ) : (
@@ -197,17 +198,17 @@ function ArtworkPage() {
               Discoverable
               <span className="block text-xs text-muted-foreground">
                 Others can find title, artist, date, subject, movement, museum and tags while exploring. Photos are never shared.
-                {!canBeDiscoverable(a) && " Requires title, artist and date."}
+                {!canBeDiscoverable(toInput(a)) && " Requires title, artist and date."}
               </span>
             </span>
-            <Switch checked={a.discoverable} onCheckedChange={(v) => run(() => api.updateArtwork(a.id, { discoverable: v }))} />
+            <Switch checked={a.discoverable} onCheckedChange={(v) => run(() => api.setDiscoverable(a.id, v))} />
           </label>
           <label className="flex items-start justify-between gap-4">
             <span className="text-sm">
               Share notes
               <span className="block text-xs text-muted-foreground">Notes stay private unless you turn this on.</span>
             </span>
-            <Switch checked={a.notesDiscoverable} onCheckedChange={(v) => run(() => api.updateArtwork(a.id, { notesDiscoverable: v }))} />
+            <Switch checked={a.notesDiscoverable} onCheckedChange={(v) => run(() => api.setNotesDiscoverable(a.id, v))} />
           </label>
         </section>
 
@@ -235,7 +236,7 @@ function ArtworkPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-      <Viewer photoId={viewing} onClose={() => setViewing(null)} />
+      <Viewer artworkId={a.id} photoId={viewing} onClose={() => setViewing(null)} />
     </div>
   );
 }

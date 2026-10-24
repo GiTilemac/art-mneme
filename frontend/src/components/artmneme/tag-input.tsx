@@ -1,23 +1,20 @@
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import * as api from "@/lib/api";
-import { entitiesKey, useEntities } from "@/hooks/use-artmneme";
-import { validateTag } from "@/lib/domain";
+import { api } from "@/services";
+import { normalizeName, validateTag, type Entity } from "@/lib/domain";
 
 export function TagInput({
   value,
   onChange,
   allowCreate = true,
 }: {
-  value: string[];
-  onChange: (ids: string[]) => void;
+  value: Entity[];
+  onChange: (tags: Entity[]) => void;
   allowCreate?: boolean;
 }) {
-  const qc = useQueryClient();
-  const { tagName, tags } = useEntities();
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const { data: suggestions = [] } = useQuery({
@@ -26,14 +23,13 @@ export function TagInput({
   });
 
   async function add(name: string) {
-    const existing = tags.find((t) => t.name === name.trim().toLowerCase());
+    const existing = suggestions.find((t) => t.name === normalizeName(name));
     if (!existing && !allowCreate) return setError("Pick an existing tag.");
     const err = validateTag(name);
     if (err) return setError(err);
     try {
       const t = existing ?? (await api.createEntity("tags", name));
-      await qc.invalidateQueries({ queryKey: entitiesKey });
-      if (!value.includes(t.id)) onChange([...value, t.id]);
+      if (!value.some((v) => v.id === t.id)) onChange([...value, t]);
       setText("");
       setError(null);
     } catch (e) {
@@ -41,16 +37,16 @@ export function TagInput({
     }
   }
 
-  const shown = suggestions.filter((s) => !value.includes(s.id)).slice(0, 6);
+  const shown = suggestions.filter((s) => !value.some((v) => v.id === s.id)).slice(0, 6);
 
   return (
     <div className="space-y-2">
       {value.length > 0 && (
         <div className="flex flex-wrap gap-1.5">
-          {value.map((id) => (
-            <span key={id} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs">
-              {tagName(id)}
-              <button type="button" aria-label={`Remove ${tagName(id)}`} onClick={() => onChange(value.filter((v) => v !== id))}>
+          {value.map((t) => (
+            <span key={t.id} className="inline-flex items-center gap-1 rounded-full bg-secondary px-2.5 py-0.5 text-xs">
+              {t.name}
+              <button type="button" aria-label={`Remove ${t.name}`} onClick={() => onChange(value.filter((v) => v.id !== t.id))}>
                 <X className="size-3" />
               </button>
             </span>

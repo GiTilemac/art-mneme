@@ -1,8 +1,7 @@
 /**
- * MOCK BACKEND. Every function here is async and shaped like a future HTTP call.
+ * MOCK BACKEND. Implements the services layer so the whole app runs without a real backend.
  * Data lives in localStorage (records) and IndexedDB (photos) in this browser only.
- * Replace the bodies with real fetch() calls when the real backend exists;
- * keep the signatures so the UI does not change.
+ * Each function follows the matching endpoint in openapi.yaml.
  */
 import {
   canBeDiscoverable,
@@ -21,15 +20,20 @@ import {
   type CommunityArtwork,
   type Entity,
   type EntityKind,
-} from "./domain";
+} from "@/lib/domain";
+import type { ExploreParams, ListParams, Page, RelatedArtworks, Services, User } from "./types";
 
-export type UsageEventType =
-  | "sign_in"
-  | "artwork_created"
-  | "artwork_creation_failed"
-  | "exploration"
-  | "discoverable_enabled"
-  | "watchlist_converted";
+/** An artwork as the mock stores it: entries by id, plus the owner and photo ids. */
+interface StoredArtwork extends ArtworkInput {
+  id: string;
+  ownerId: string;
+  state: ArtworkState;
+  photoId: string | null;
+  detailPhotoIds: string[];
+  discoverable: boolean;
+  notesDiscoverable: boolean;
+  createdAt: string;
+}
 
 interface Db {
   users: { id: string; email: string; password: string }[];
@@ -37,11 +41,11 @@ interface Db {
   movements: Entity[];
   subjects: Entity[];
   tags: Entity[];
-  artworks: Artwork[];
-  events: { type: UsageEventType; userId: string; at: string }[];
+  artworks: StoredArtwork[];
 }
 
-export interface Session {
+/** Stands in for the session cookie. */
+interface Session {
   userId: string;
   email: string;
   expiresAt: number;
@@ -90,10 +94,12 @@ const putPhoto = async (blob: Blob) => {
   await photoTx("readwrite", (s) => void s.put(blob, id));
   return id;
 };
+const readPhoto = async (id: string) =>
+  (await photoTx<Blob | undefined>("readonly", (s) => s.get(id))) ?? null;
 const removePhoto = (id: string) => photoTx("readwrite", (s) => void s.delete(id));
 
 // ---------- auth ----------
-export function getSessionSync(): Session | null {
+function currentSession(): Session | null {
   const raw = localStorage.getItem(SESSION_KEY);
   if (!raw) return null;
   const s = JSON.parse(raw) as Session;
@@ -107,62 +113,65 @@ export function getSessionSync(): Session | null {
   return s;
 }
 function me(): string {
-  const s = getSessionSync();
+  const s = currentSession();
   if (!s) throw new Error("Please sign in again.");
   return s.userId;
 }
-function startSession(u: { id: string; email: string }) {
+function startSession(u: { id: string; email: string }): User {
   const s: Session = { userId: u.id, email: u.email, expiresAt: Date.now() + SESSION_MS };
   localStorage.setItem(SESSION_KEY, JSON.stringify(s));
-  return s;
-}
-function track(db: Db, type: UsageEventType, userId: string) {
-  db.events.push({ type, userId, at: new Date().toISOString() });
+  return { id: u.id, email: u.email };
 }
 
-export async function signUp(email: string, password: string) {
+async function register(email: string, password: string) {
   const e = email.trim().toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(e)) throw new Error("Enter a valid email address.");
   const pwErr = validatePassword(password);
   if (pwErr) throw new Error(pwErr);
   const db = load();
-  if (db.users.some((u) => u.email === e)) throw new Error("An account with this email already exists.");
+  if (db.users.some((u) => u.email === e))
+    throw new Error("An account with this email already exists.");
   const u = { id: uid(), email: e, password };
   db.users.push(u);
-  track(db, "sign_in", u.id);
   save(db);
   return wait(startSession(u));
 }
 
-export async function signIn(email: string, password: string) {
-  const db = load();
-  const u = db.users.find((x) => x.email === email.trim().toLowerCase() && x.password === password);
+async function login(email: string, password: string) {
+  const u = load().users.find(
+    (x) => x.email === email.trim().toLowerCase() && x.password === password,
+  );
   if (!u) throw new Error("Email or password is incorrect.");
-  track(db, "sign_in", u.id);
-  save(db);
   return wait(startSession(u));
 }
 
-export async function signOut() {
+async function logout() {
+  me();
   localStorage.removeItem(SESSION_KEY);
   return wait(undefined);
 }
 
-// ---------- shared entities ----------
-export interface Entities {
-  artists: Entity[];
-  movements: Entity[];
-  subjects: Entity[];
-  tags: Entity[];
-}
-export async function getEntities(): Promise<Entities> {
-  const { artists, movements, subjects, tags } = load();
-  const sort = (l: Entity[]) => [...l].sort((a, b) => a.name.localeCompare(b.name));
-  return wait({ artists: sort(artists), movements: sort(movements), subjects: sort(subjects), tags });
+async function getMe() {
+  const s = currentSession();
+  return wait(s ? { id: s.userId, email: s.email } : null, 0);
 }
 
-/** Select-or-create. Matching an existing name (case-insensitive) returns it. */
-export async function createEntity(kind: EntityKind, name: string): Promise<Entity> {
+// ---------- shared entries ----------
+async function searchEntities(
+  kind: Exclude<EntityKind, "tags">,
+  query: string,
+  page = 1,
+): Promise<Page<Entity>> {
+  me();
+  const q = normalizeName(query);
+  const items = load()
+    [kind].filter((e) => !q || e.name.toLowerCase().includes(q))
+    .sort((a, b) => a.name.localeCompare(b.name));
+  return wait(paginate(items, page), 60);
+}
+
+async function createEntity(kind: EntityKind, name: string) {
+  me();
   const clean = collapse(name);
   if (!clean) throw new Error("Name cannot be empty.");
   if (kind === "tags") {
@@ -179,7 +188,8 @@ export async function createEntity(kind: EntityKind, name: string): Promise<Enti
 }
 
 /** Popular tags first; tags on fewer than 2 artworks are hidden. */
-export async function suggestTags(query: string): Promise<Entity[]> {
+async function suggestTags(query: string) {
+  me();
   const db = load();
   const q = normalizeName(query);
   const counts = new Map<string, number>();
@@ -195,28 +205,58 @@ export async function suggestTags(query: string): Promise<Entity[]> {
 }
 
 // ---------- artworks ----------
-export interface ListParams {
-  state: ArtworkState;
-  q?: string | undefined;
-  artistId?: string | undefined;
-  movementId?: string | undefined;
-  museum?: string | undefined;
-  tagIds?: string[] | undefined;
-  fromYear?: number | undefined;
-  toYear?: number | undefined;
-  page?: number | undefined;
-}
-export interface Page<T> {
-  items: T[];
-  total: number;
-  page: number;
-  pageSize: number;
+function paginate<T>(items: T[], requested?: number): Page<T> {
+  const page = Math.max(1, requested ?? 1);
+  return {
+    items: items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
+    total: items.length,
+    page,
+    pageSize: PAGE_SIZE,
+  };
 }
 
-export async function listArtworks(p: ListParams): Promise<Page<Artwork>> {
+const find = (l: Entity[], id: string | null) => (id ? (l.find((e) => e.id === id) ?? null) : null);
+
+function resolved(db: Db, a: StoredArtwork) {
+  return {
+    title: a.title,
+    artist: find(db.artists, a.artistId),
+    date: a.date,
+    subject: find(db.subjects, a.subjectId),
+    movement: find(db.movements, a.movementId),
+    museum: a.museum,
+    tags: a.tagIds.map((t) => find(db.tags, t)).filter((t): t is Entity => !!t),
+  };
+}
+
+function view(db: Db, a: StoredArtwork): Artwork {
+  return {
+    ...resolved(db, a),
+    id: a.id,
+    notes: a.notes,
+    state: a.state,
+    hasPhoto: !!a.photoId,
+    detailPhotoIds: [...a.detailPhotoIds],
+    discoverable: a.discoverable,
+    notesDiscoverable: a.notesDiscoverable,
+    createdAt: a.createdAt,
+  };
+}
+
+function communityView(db: Db, a: StoredArtwork): CommunityArtwork {
+  return { ...resolved(db, a), id: a.id, notes: a.notesDiscoverable ? a.notes : null };
+}
+
+function own(db: Db, id: string): StoredArtwork {
+  const a = db.artworks.find((x) => x.id === id && x.ownerId === me());
+  if (!a) throw new Error("Artwork not found.");
+  return a;
+}
+
+async function listArtworks(p: ListParams) {
   const userId = me();
   const db = load();
-  const name = (l: Entity[], id: string | null) => (id ? (l.find((e) => e.id === id)?.name ?? "") : "");
+  const name = (l: Entity[], id: string | null) => find(l, id)?.name ?? "";
   const q = p.q ? normalizeName(p.q) : "";
   let items = db.artworks.filter((a) => a.ownerId === userId && a.state === p.state);
   if (q)
@@ -231,7 +271,8 @@ export async function listArtworks(p: ListParams): Promise<Page<Artwork>> {
     );
   if (p.artistId) items = items.filter((a) => a.artistId === p.artistId);
   if (p.movementId) items = items.filter((a) => a.movementId === p.movementId);
-  if (p.museum) items = items.filter((a) => a.museum.toLowerCase().includes(normalizeName(p.museum!)));
+  if (p.museum)
+    items = items.filter((a) => a.museum.toLowerCase().includes(normalizeName(p.museum!)));
   if (p.tagIds?.length) items = items.filter((a) => p.tagIds!.every((t) => a.tagIds.includes(t)));
   if (p.fromYear != null || p.toYear != null) {
     const lo = p.fromYear ?? -Infinity;
@@ -243,80 +284,65 @@ export async function listArtworks(p: ListParams): Promise<Page<Artwork>> {
     });
   }
   items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-  const page = Math.max(1, p.page ?? 1);
-  return wait({
-    items: items.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    total: items.length,
-    page,
-    pageSize: PAGE_SIZE,
-  });
+  const page = paginate(items, p.page);
+  return wait({ ...page, items: page.items.map((a) => view(db, a)) });
 }
 
-function own(db: Db, id: string): Artwork {
-  const a = db.artworks.find((x) => x.id === id && x.ownerId === me());
-  if (!a) throw new Error("Artwork not found.");
-  return a;
+async function getArtwork(id: string) {
+  const db = load();
+  return wait(view(db, own(db, id)));
 }
 
-export async function getArtwork(id: string): Promise<Artwork> {
-  return wait(own(load(), id));
-}
-
-export async function findDuplicates(input: ArtworkInput, excludeId?: string): Promise<Artwork[]> {
+async function findDuplicates(
+  input: Pick<ArtworkInput, "title" | "artistId" | "date">,
+  excludeId?: string,
+) {
   const userId = me();
+  const db = load();
   return wait(
-    load().artworks.filter((a) => a.ownerId === userId && a.id !== excludeId && isDuplicate(a, input)),
+    db.artworks
+      .filter((a) => a.ownerId === userId && a.id !== excludeId && isDuplicate(a, input))
+      .map((a) => view(db, a)),
     40,
   );
 }
 
-export async function createArtwork(input: ArtworkInput, state: ArtworkState, photo?: Blob | null): Promise<Artwork> {
+async function createArtwork(input: ArtworkInput, state: ArtworkState, photo?: Blob | null) {
   const userId = me();
   const invalid = validateNewArtwork(state, !!photo);
   if (invalid) throw new Error(invalid);
-  try {
-    const photoId = photo ? await putPhoto(photo) : null;
-    const db = load();
-    const a: Artwork = {
-      ...input,
-      title: collapse(input.title),
-      museum: collapse(input.museum),
-      id: uid(),
-      ownerId: userId,
-      state,
-      photoId,
-      detailPhotoIds: [],
-      discoverable: false,
-      notesDiscoverable: false,
-      createdAt: new Date().toISOString(),
-    };
-    db.artworks.push(a);
-    track(db, "artwork_created", userId);
-    save(db);
-    return wait(a);
-  } catch (e) {
-    const db = load();
-    track(db, "artwork_creation_failed", userId);
-    save(db);
-    throw e;
-  }
+  const photoId = photo ? await putPhoto(photo) : null;
+  const db = load();
+  const a: StoredArtwork = {
+    ...input,
+    title: collapse(input.title),
+    museum: collapse(input.museum),
+    id: uid(),
+    ownerId: userId,
+    state,
+    photoId,
+    detailPhotoIds: [],
+    discoverable: false,
+    notesDiscoverable: false,
+    createdAt: new Date().toISOString(),
+  };
+  db.artworks.push(a);
+  save(db);
+  return wait(view(db, a));
 }
 
-export type ArtworkPatch = Partial<ArtworkInput & Pick<Artwork, "discoverable" | "notesDiscoverable">>;
-
-export async function updateArtwork(id: string, patch: ArtworkPatch): Promise<Artwork> {
+async function updateArtwork(id: string, patch: Partial<ArtworkInput>) {
   const db = load();
   const a = own(db, id);
   const next = { ...a, ...patch };
   if (next.discoverable && !canBeDiscoverable(next))
-    throw new Error("Set a title, artist and date before making this artwork discoverable.");
-  if (next.discoverable && !a.discoverable) track(db, "discoverable_enabled", a.ownerId);
+    throw new Error("An artwork must keep its title, artist and date while it is discoverable.");
   Object.assign(a, next, { title: collapse(next.title), museum: collapse(next.museum) });
   save(db);
-  return wait(a);
+  return wait(view(db, a));
 }
 
-export async function deleteArtwork(id: string) {
+async function deleteArtwork(id: string) {
   const db = load();
   const a = own(db, id);
   db.artworks = db.artworks.filter((x) => x.id !== id);
@@ -324,65 +350,79 @@ export async function deleteArtwork(id: string) {
   await Promise.all([a.photoId, ...a.detailPhotoIds].filter(Boolean).map((p) => removePhoto(p!)));
 }
 
+// ---------- photos ----------
 /** Uploading the main photo moves a watchlist artwork into the collection. Any old photo is deleted. */
-export async function setArtworkPhoto(id: string, photo: Blob): Promise<Artwork> {
+async function setArtworkPhoto(id: string, photo: Blob) {
+  own(load(), id);
   const photoId = await putPhoto(photo);
   const db = load();
   const a = own(db, id);
   const old = a.photoId;
-  if (a.state === "WATCHLIST") track(db, "watchlist_converted", a.ownerId);
   a.state = "COLLECTION";
   a.photoId = photoId;
   save(db);
   if (old) await removePhoto(old);
-  return a;
+  return view(db, a);
 }
 
-export async function addDetailPhoto(id: string, photo: Blob): Promise<Artwork> {
+/** Photos are private: only the owner can read them. */
+async function getArtworkPhoto(id: string) {
+  const a = own(load(), id);
+  return a.photoId ? readPhoto(a.photoId) : null;
+}
+
+async function addDetailPhoto(id: string, photo: Blob) {
+  own(load(), id);
   const photoId = await putPhoto(photo);
   const db = load();
   const a = own(db, id);
   a.detailPhotoIds.push(photoId);
   save(db);
-  return a;
+  return view(db, a);
 }
 
-export async function deleteDetailPhoto(id: string, photoId: string): Promise<Artwork> {
+async function getDetailPhoto(id: string, photoId: string) {
+  const a = own(load(), id);
+  if (!a.detailPhotoIds.includes(photoId)) throw new Error("Photo not found.");
+  return readPhoto(photoId);
+}
+
+async function deleteDetailPhoto(id: string, photoId: string) {
   const db = load();
   const a = own(db, id);
+  if (!a.detailPhotoIds.includes(photoId)) throw new Error("Photo not found.");
   a.detailPhotoIds = a.detailPhotoIds.filter((p) => p !== photoId);
   save(db);
   await removePhoto(photoId);
-  return a;
+  return view(db, a);
 }
 
-/** Photos are private: only the owner's browser can read them. */
-export async function getPhoto(photoId: string): Promise<Blob | null> {
-  return (await photoTx<Blob | undefined>("readonly", (s) => s.get(photoId))) ?? null;
+// ---------- discoverability ----------
+async function setDiscoverable(id: string, value: boolean) {
+  const db = load();
+  const a = own(db, id);
+  if (value && !canBeDiscoverable(a))
+    throw new Error("Set a title, artist and date before making this artwork discoverable.");
+  a.discoverable = value;
+  save(db);
+  return wait(view(db, a));
+}
+
+async function setNotesDiscoverable(id: string, value: boolean) {
+  const db = load();
+  const a = own(db, id);
+  a.notesDiscoverable = value;
+  save(db);
+  return wait(view(db, a));
 }
 
 // ---------- relationship exploration ----------
-export type Dimension = "artist" | "subject" | "movement" | "museum" | "tags";
-export interface ExploreParams {
-  artworkId: string;
-  dimension: Dimension;
-  tagIds: string[];
-  includeCollection: boolean;
-  includeWatchlist: boolean;
-  includeCommunity: boolean;
-}
-export interface ExploreResult {
-  collection: Artwork[];
-  watchlist: Artwork[];
-  community: CommunityArtwork[];
-}
-
-export async function explore(p: ExploreParams): Promise<ExploreResult> {
+async function explore(id: string, p: ExploreParams): Promise<RelatedArtworks> {
   const userId = me();
   const db = load();
-  const src = own(db, p.artworkId);
-  const match = (a: Pick<Artwork, "artistId" | "subjectId" | "movementId" | "museum" | "tagIds">) => {
-    switch (p.dimension) {
+  const src = own(db, id);
+  const match = (a: StoredArtwork) => {
+    switch (p.by) {
       case "artist":
         return !!src.artistId && a.artistId === src.artistId;
       case "subject":
@@ -397,28 +437,44 @@ export async function explore(p: ExploreParams): Promise<ExploreResult> {
   };
   const candidates = db.artworks.filter((a) => a.id !== src.id && match(a));
   const mine = candidates.filter((a) => a.ownerId === userId);
-  track(db, "exploration", userId);
-  save(db);
   return wait({
-    collection: p.includeCollection ? mine.filter((a) => a.state === "COLLECTION") : [],
-    watchlist: p.includeWatchlist ? mine.filter((a) => a.state === "WATCHLIST") : [],
+    collection: p.includeCollection
+      ? mine.filter((a) => a.state === "COLLECTION").map((a) => view(db, a))
+      : [],
+    watchlist: p.includeWatchlist
+      ? mine.filter((a) => a.state === "WATCHLIST").map((a) => view(db, a))
+      : [],
     community: p.includeCommunity
       ? candidates
           .filter((a) => a.ownerId !== userId && a.discoverable)
-          .map((a) => ({
-            id: a.id,
-            title: a.title,
-            artistId: a.artistId,
-            date: a.date,
-            subjectId: a.subjectId,
-            movementId: a.movementId,
-            museum: a.museum,
-            tagIds: a.tagIds,
-            notes: a.notesDiscoverable ? a.notes : null,
-          }))
+          .map((a) => communityView(db, a))
       : [],
   });
 }
+
+export const mockServices: Services = {
+  register,
+  login,
+  logout,
+  me: getMe,
+  searchEntities,
+  createEntity,
+  suggestTags,
+  listArtworks,
+  findDuplicates,
+  createArtwork,
+  getArtwork,
+  updateArtwork,
+  deleteArtwork,
+  setArtworkPhoto,
+  getArtworkPhoto,
+  addDetailPhoto,
+  getDetailPhoto,
+  deleteDetailPhoto,
+  setDiscoverable,
+  setNotesDiscoverable,
+  explore,
+};
 
 // ---------- seed ----------
 function seed(): Db {
@@ -446,7 +502,16 @@ function seed(): Db {
     "Cubism",
     "Surrealism",
   ]);
-  const subjects = ent(["Cat", "Landscape", "Ship", "David and Goliath", "Judgement of Paris", "Judith", "Battle", "Militia"]);
+  const subjects = ent([
+    "Cat",
+    "Landscape",
+    "Ship",
+    "David and Goliath",
+    "Judgement of Paris",
+    "Judith",
+    "Battle",
+    "Militia",
+  ]);
   const tags = ent(["battle", "horse", "armor", "chiaroscuro", "sword"]);
   const id = (l: Entity[], n: string) => l.find((e) => e.name === n)!.id;
   const T = (...n: string[]) => n.map((x) => id(tags, x));
@@ -459,7 +524,7 @@ function seed(): Db {
     museum: string,
     tagIds: string[],
     notes = "",
-  ): Artwork => ({
+  ): StoredArtwork => ({
     id: uid(),
     ownerId: "community",
     state: "COLLECTION",
@@ -483,15 +548,65 @@ function seed(): Db {
     movements,
     subjects,
     tags,
-    events: [],
     artworks: [
-      community("David with the Head of Goliath", "Caravaggio", yr(1610, true), "David and Goliath", "Galleria Borghese", T("chiaroscuro", "sword"), "Goliath is a self-portrait."),
-      community("Judith Beheading Holofernes", "Caravaggio", yr(1599, true), "Judith", "Palazzo Barberini", T("chiaroscuro", "sword")),
-      community("Judith Slaying Holofernes", "Artemisia Gentileschi", yr(1620, true), "Judith", "Uffizi", T("chiaroscuro", "sword")),
-      community("The Judgement of Paris", "Peter Paul Rubens", yr(1636), "Judgement of Paris", "Prado", []),
-      community("The Battle of the Amazons", "Peter Paul Rubens", yr(1618), "Battle", "Alte Pinakothek", T("battle", "horse", "armor")),
-      community("The Battle of San Romano", "Paolo Uccello", yr(1438, true), "Battle", "National Gallery", T("battle", "horse", "armor"), "Look at the broken lances on the ground."),
-      community("The Night Watch", "Rembrandt van Rijn", yr(1642), "Militia", "Rijksmuseum", T("armor", "chiaroscuro")),
+      community(
+        "David with the Head of Goliath",
+        "Caravaggio",
+        yr(1610, true),
+        "David and Goliath",
+        "Galleria Borghese",
+        T("chiaroscuro", "sword"),
+        "Goliath is a self-portrait.",
+      ),
+      community(
+        "Judith Beheading Holofernes",
+        "Caravaggio",
+        yr(1599, true),
+        "Judith",
+        "Palazzo Barberini",
+        T("chiaroscuro", "sword"),
+      ),
+      community(
+        "Judith Slaying Holofernes",
+        "Artemisia Gentileschi",
+        yr(1620, true),
+        "Judith",
+        "Uffizi",
+        T("chiaroscuro", "sword"),
+      ),
+      community(
+        "The Judgement of Paris",
+        "Peter Paul Rubens",
+        yr(1636),
+        "Judgement of Paris",
+        "Prado",
+        [],
+      ),
+      community(
+        "The Battle of the Amazons",
+        "Peter Paul Rubens",
+        yr(1618),
+        "Battle",
+        "Alte Pinakothek",
+        T("battle", "horse", "armor"),
+      ),
+      community(
+        "The Battle of San Romano",
+        "Paolo Uccello",
+        yr(1438, true),
+        "Battle",
+        "National Gallery",
+        T("battle", "horse", "armor"),
+        "Look at the broken lances on the ground.",
+      ),
+      community(
+        "The Night Watch",
+        "Rembrandt van Rijn",
+        yr(1642),
+        "Militia",
+        "Rijksmuseum",
+        T("armor", "chiaroscuro"),
+      ),
     ],
   };
 }

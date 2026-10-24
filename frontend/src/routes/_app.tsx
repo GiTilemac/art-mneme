@@ -2,15 +2,15 @@ import { createFileRoute, Link, Outlet, redirect, useNavigate } from "@tanstack/
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import * as api from "@/lib/api";
+import { api } from "@/services";
 
-// Signed-in area. Session is mocked in the browser, so this only runs client-side.
+// Signed-in area. The mock keeps the session in the browser, so this only runs client-side.
 export const Route = createFileRoute("/_app")({
   ssr: false,
-  beforeLoad: ({ location }) => {
-    const session = api.getSessionSync();
-    if (!session) throw redirect({ to: "/auth", search: { redirect: location.href } });
-    return { session };
+  beforeLoad: async ({ location }) => {
+    const user = await api.me();
+    if (!user) throw redirect({ to: "/auth", search: { redirect: location.href } });
+    return { user };
   },
   component: AppLayout,
 });
@@ -23,7 +23,7 @@ function AppLayout() {
   async function signOut() {
     await qc.cancelQueries();
     qc.clear();
-    await api.signOut();
+    await api.logout();
     navigate({ to: "/auth", replace: true });
   }
   return (

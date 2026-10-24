@@ -8,9 +8,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { EntityPicker } from "./entity-picker";
 import { TagInput } from "./tag-input";
-import { useEntities } from "@/hooks/use-artmneme";
-import * as api from "@/lib/api";
-import { formatDate, type ArtworkDate, type ArtworkInput } from "@/lib/domain";
+import { api } from "@/services";
+import { formatDate, toInput, type ArtworkDate, type ArtworkDraft, type ArtworkInput } from "@/lib/domain";
 
 function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
   return (
@@ -58,28 +57,27 @@ export function ArtworkForm({
   onCancel,
   extra,
 }: {
-  initial: ArtworkInput;
+  initial: ArtworkDraft;
   excludeId?: string;
   submitLabel: string;
   onSubmit: (v: ArtworkInput) => Promise<void>;
   onCancel?: () => void;
   extra?: ReactNode;
 }) {
-  const ent = useEntities();
-  const [v, setV] = useState<ArtworkInput>(initial);
+  const [v, setV] = useState<ArtworkDraft>(initial);
   const [busy, setBusy] = useState(false);
-  const set = <K extends keyof ArtworkInput>(k: K, val: ArtworkInput[K]) => setV((p) => ({ ...p, [k]: val }));
+  const set = <K extends keyof ArtworkDraft>(k: K, val: ArtworkDraft[K]) => setV((p) => ({ ...p, [k]: val }));
 
   const { data: dups = [] } = useQuery({
-    queryKey: ["duplicates", v.title, v.artistId, v.date, excludeId],
-    queryFn: () => api.findDuplicates(v, excludeId),
+    queryKey: ["duplicates", v.title, v.artist?.id, v.date, excludeId],
+    queryFn: () => api.findDuplicates(toInput(v), excludeId),
   });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
     try {
-      await onSubmit(v);
+      await onSubmit(toInput(v));
     } finally {
       setBusy(false);
     }
@@ -93,7 +91,7 @@ export function ArtworkForm({
       </Field>
       <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Artist">
-          <EntityPicker kind="artists" options={ent.artists} value={v.artistId} onChange={(id) => set("artistId", id)} placeholder="Search or create" />
+          <EntityPicker kind="artists" value={v.artist} onChange={(e) => set("artist", e)} placeholder="Search or create" />
         </Field>
         <Field label="Date">
           <DateInput value={v.date} onChange={(d) => set("date", d)} />
@@ -107,17 +105,17 @@ export function ArtworkForm({
       )}
       <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Subject">
-          <EntityPicker kind="subjects" options={ent.subjects} value={v.subjectId} onChange={(id) => set("subjectId", id)} placeholder="Search or create" />
+          <EntityPicker kind="subjects" value={v.subject} onChange={(e) => set("subject", e)} placeholder="Search or create" />
         </Field>
         <Field label="Movement">
-          <EntityPicker kind="movements" options={ent.movements} value={v.movementId} onChange={(id) => set("movementId", id)} placeholder="Search or create" />
+          <EntityPicker kind="movements" value={v.movement} onChange={(e) => set("movement", e)} placeholder="Search or create" />
         </Field>
       </div>
       <Field label="Museum" hint="Where you encountered it.">
         <Input value={v.museum} onChange={(e) => set("museum", e.target.value)} placeholder="Louvre" />
       </Field>
       <Field label="Tags">
-        <TagInput value={v.tagIds} onChange={(ids) => set("tagIds", ids)} />
+        <TagInput value={v.tags} onChange={(tags) => set("tags", tags)} />
       </Field>
       <Field label="Notes">
         <Textarea rows={4} value={v.notes} onChange={(e) => set("notes", e.target.value)} />

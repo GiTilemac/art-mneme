@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { getSessionSync } from "@/lib/api";
+import { api } from "@/services";
 import hero from "@/assets/hero-gallery.jpg";
 
 export const Route = createFileRoute("/")({
@@ -20,7 +20,9 @@ export const Route = createFileRoute("/")({
 
 function Landing() {
   const [signedIn, setSignedIn] = useState(false);
-  useEffect(() => setSignedIn(!!getSessionSync()), []);
+  useEffect(() => {
+    api.me().then((u) => setSignedIn(!!u));
+  }, []);
   return (
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="flex flex-col justify-between p-8 sm:p-14">
