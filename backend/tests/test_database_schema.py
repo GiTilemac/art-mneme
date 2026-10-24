@@ -76,7 +76,8 @@ def user(conn, email="ann@example.com"):
 
 
 def artwork(conn, **values):
-    values.setdefault("user_id", user(conn))
+    if "user_id" not in values:
+        values["user_id"] = user(conn)
     values.setdefault("artwork_photo_path", "photos/1.jpg")
     return insert(conn, "artworks", **values).id
 
