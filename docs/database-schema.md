@@ -100,6 +100,12 @@ created_at
 updated_at
 ```
 
+## Rules
+
+Email is unique, ignoring capital letters (`Ann@x.com` and `ann@X.com` are the same email).
+
+---
+
 ## Relationships
 
 ```text
@@ -513,6 +519,12 @@ Reserved for future flexibility.
 
 ---
 
+## Rules
+
+One link per artwork and tag: the same tag cannot be added twice to the same artwork.
+
+---
+
 # DetailPhoto
 
 Represents detail images attached to an artwork.
@@ -785,6 +797,42 @@ Tag
 ```
 
 This avoids orphaned references and accidental data loss.
+
+---
+
+# Rules Enforced by the Database
+
+Each rule is refused by the database itself:
+
+```text
+collection_state is WATCHLIST or COLLECTION
+
+A COLLECTION artwork has an artwork photo
+
+ArtworkTag.source is USER or SYSTEM
+
+Artist, Movement, Subject and Tag names are unique, ignoring capital letters
+
+User email is unique, ignoring capital letters
+
+One link per artwork and tag
+
+Tag.usage_count is never below 0
+
+year_start and year_end are never 0 (there is no year 0; 1 BC is -1)
+
+year_end is not earlier than year_start
+
+year_end is set only when year_start is set
+
+Every reference (user, artist, subject, movement, artwork, tag) points to an existing row
+
+Deleting an artwork deletes its detail photos and artwork-tag links
+
+An artist, movement, subject or tag used by an artwork cannot be deleted
+
+A user who has artworks cannot be deleted
+```
 
 ---
 
