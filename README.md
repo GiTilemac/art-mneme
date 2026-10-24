@@ -186,7 +186,7 @@ Instructions for AI-assisted development.
 │
 ├── frontend/
 ├── backend/
-├── tests/
+│   └── tests/
 │
 ├── .claude/
 │   └── CLAUDE.md
@@ -204,6 +204,37 @@ Instructions for AI-assisted development.
     └── team/
         ├── pm.md
         └── dev.md
+```
+
+---
+
+# Running the Backend
+
+Run all commands from the `backend/` folder.
+
+## Prerequisites
+
+- Python 3.13
+- [uv](https://docs.astral.sh/uv/)
+
+## Install
+
+```bash
+uv sync
+```
+
+## Start
+
+```bash
+uv run uvicorn main:app --port 8000
+```
+
+The API is served at `http://localhost:8000/api`, for example `http://localhost:8000/api/health`.
+
+## Test
+
+```bash
+uv run pytest
 ```
 
 ---

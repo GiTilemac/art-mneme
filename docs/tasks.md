@@ -3,7 +3,7 @@
 Each task is meant to fit in one working session. Each one can be read on its own.
 Sources of truth: `product-spec.md`, `openapi.yaml`, `docs/database-schema.md`, `docs/architecture.md`, `docs/observability.md`.
 Every endpoint is already defined in `openapi.yaml`. Each task implements its endpoints exactly as defined there; if a task needs a change to an endpoint, `openapi.yaml` is changed first, with the project owner's approval.
-This backlog covers the backend only. The frontend in `frontend/` is built in Lovable and talks to the backend through `frontend/src/lib/api.ts`.
+This backlog covers the backend only. The frontend in `frontend/` is built in Lovable and talks to the backend through `frontend/src/services/`.
 
 ---
 
