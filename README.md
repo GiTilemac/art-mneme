@@ -216,14 +216,47 @@ Run all commands from the `backend/` folder.
 
 - Python 3.13
 - [uv](https://docs.astral.sh/uv/)
+- PostgreSQL 14 or newer, installed and running
+
+Create the database user `artmneme` and its two databases, `artmneme` (development) and `artmneme_test` (tests only):
+
+```bash
+sudo -u postgres psql -c "CREATE ROLE artmneme LOGIN PASSWORD 'artmneme'"
+sudo -u postgres createdb -O artmneme artmneme
+sudo -u postgres createdb -O artmneme artmneme_test
+```
+
+If your PostgreSQL server does not listen on the default port 5432, add `-p <port>` to these commands.
+
+The backend and the tests find these databases through two environment variables:
+
+| Variable | Used by | Local value |
+|----------|---------|-------------|
+| `DATABASE_URL` | the backend and the schema command | `postgresql+psycopg://artmneme:artmneme@localhost:5432/artmneme` |
+| `TEST_DATABASE_URL` | the tests | `postgresql+psycopg://artmneme:artmneme@localhost:5432/artmneme_test` |
+
+The port in these values must match your local server (for example 5433). These are local development values only; no `.env` file is read.
 
 ## Install
+
+No variables needed.
 
 ```bash
 uv sync
 ```
 
+## Create the schema
+
+Needs `DATABASE_URL`. Creates all tables and the seeded movements. Running it again does nothing.
+
+```bash
+export DATABASE_URL=postgresql+psycopg://artmneme:artmneme@localhost:5432/artmneme
+uv run alembic upgrade head
+```
+
 ## Start
+
+Needs `DATABASE_URL` for endpoints that use the database; `GET /api/health` works without it.
 
 ```bash
 uv run uvicorn main:app --port 8000
@@ -233,7 +266,10 @@ The API is served at `http://localhost:8000/api`, for example `http://localhost:
 
 ## Test
 
+Needs `TEST_DATABASE_URL`. The tests empty the test database and rebuild it at every run, so it must never be the development database.
+
 ```bash
+export TEST_DATABASE_URL=postgresql+psycopg://artmneme:artmneme@localhost:5432/artmneme_test
 uv run pytest
 ```
 
