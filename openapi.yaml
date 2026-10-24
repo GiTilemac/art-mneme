@@ -14,6 +14,9 @@ info:
 
     Lists are paginated at 50 items per page.
 
+    Every response to a logged-in request sends the `session` cookie again
+    with a fresh 30 days.
+
 servers:
   - url: /api
 
@@ -111,6 +114,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "422":
+          $ref: "#/components/responses/Invalid"
 
   /auth/logout:
     post:
