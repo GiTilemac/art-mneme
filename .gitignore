@@ -1,1 +1,4 @@
 frontend/.env
+.venv/
+__pycache__/
+.pytest_cache/
