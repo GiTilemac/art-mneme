@@ -203,6 +203,8 @@ Artwork encountered.
 
 Artwork photo required.
 
+Default state for new artworks.
+
 ---
 
 ## Artwork Identity
@@ -572,7 +574,9 @@ artwork_photo_path
 Rules:
 
 ```text
-Exactly one artwork photo per artwork.
+COLLECTION artwork: exactly one artwork photo.
+
+WATCHLIST artwork: zero or one artwork photo.
 
 Photo may be replaced.
 

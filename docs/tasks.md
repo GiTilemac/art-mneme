@@ -33,7 +33,7 @@ Description: Build the backend piece that uploads a photo file to Cloudflare R2,
 
 ## 7. Create artwork API
 Goal: A logged-in user can create a collection artwork (with photo) or a watchlist artwork (photo optional).
-Description: Add the create-artwork endpoint to `openapi.yaml` and implement it. An artwork with an artwork photo is created in the COLLECTION state; one without a photo is created in the WATCHLIST state. Every metadata field may be left empty and filled in later. The artwork belongs to the user who created it.
+Description: Add the create-artwork endpoint to `openapi.yaml` and implement it. The user chooses the state: COLLECTION (the default) or WATCHLIST. A COLLECTION artwork needs an artwork photo; a WATCHLIST artwork may have one or not. Every metadata field may be left empty and filled in later. The artwork belongs to the user who created it.
 
 ## 8. View, edit and delete own artwork API
 Goal: A user can fetch, edit and hard-delete their own artworks, and nobody else's.
@@ -45,7 +45,7 @@ Description: Extend the create-artwork endpoint so that it reports possible dupl
 
 ## 10. Artwork photo upload and replace (watchlist to collection)
 Goal: Uploading a photo to a watchlist artwork moves it into the collection; uploading to a collection artwork replaces its photo.
-Description: Add an endpoint to upload an artwork's main photo and document it in `openapi.yaml`. If the artwork is WATCHLIST, it becomes COLLECTION; if it is already COLLECTION, the old photo file is replaced and removed from storage. A collection artwork can never end up without a photo.
+Description: Add an endpoint to upload an artwork's main photo and document it in `openapi.yaml`. If the artwork is WATCHLIST, it becomes COLLECTION; if it already had a photo, that photo is deleted. If it is already COLLECTION, the old photo file is replaced and removed from storage. There is no way to remove the main photo without a replacement, and a COLLECTION artwork can never move back to WATCHLIST. A collection artwork can never end up without a photo.
 
 ## 11. Detail photos API
 Goal: A user can add, list and delete any number of detail photos on their own artworks.

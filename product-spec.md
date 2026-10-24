@@ -218,6 +218,8 @@ Rules:
 Artwork Photo Required
 ```
 
+New artworks are created as COLLECTION by default. The user may choose WATCHLIST instead.
+
 ---
 
 # Artwork Identity
@@ -541,6 +543,18 @@ Stored as:       JPEG
 
 Files the browser cannot open are refused with a message saying the file type is not supported.
 
+## Future: Local Photos
+
+Not part of v1. In v1 every photo is uploaded.
+
+A later version will remember, on the device where a photo was added, where the original file is stored. That device shows the original.
+
+Other devices show the uploaded compressed copy.
+
+An account-wide setting will let the user turn off uploading. Photos then stay only on the device where they were added, and other devices show the artwork without its photos.
+
+How the device remembers the original file is not decided yet.
+
 ## Artwork Photo
 
 Each artwork contains:
@@ -553,6 +567,8 @@ Rules:
 
 ```text
 May be replaced
+
+Cannot be removed without a replacement; to drop it, delete the artwork
 
 Shown as the main image
 
@@ -668,6 +684,10 @@ and the artwork becomes:
 ```text
 COLLECTION
 ```
+
+If the watchlist artwork already has a photo, that photo is deleted and replaced by the collection photo.
+
+A COLLECTION artwork cannot be moved back to WATCHLIST. The user creates a new watchlist artwork instead.
 
 ---
 
@@ -1013,9 +1033,27 @@ Default:
 
 Given an authenticated user
 
-When they upload an artwork photo
+When they create an artwork with an artwork photo
 
-Then a collection artwork is created.
+Then it is created as COLLECTION by default.
+
+The user may choose WATCHLIST instead.
+
+---
+
+Given an authenticated user
+
+When they create an artwork without a photo
+
+Then it can only be created as WATCHLIST.
+
+---
+
+Given a WATCHLIST artwork that has a photo
+
+When the user uploads a collection photo
+
+Then it becomes COLLECTION, and the old photo is deleted.
 
 ---
 

@@ -138,6 +138,22 @@ Recorded in:
 AGENTS.md
 ```
 
+Photos and collection state:
+
+- The project owner asked how keeping photos on their own device would change the plan, including a later Android version.
+- Claude explained the ways to store photos locally, how Android affects each, and which documents and tasks depend on the photo rules.
+- The project owner decided: a COLLECTION artwork needs a photo; new artworks default to COLLECTION; a collection artwork can never move back to WATCHLIST (the user creates a new watchlist artwork instead); the main photo cannot be removed without a replacement; when a watchlist artwork with a photo is collected, that photo is deleted.
+- The project owner decided on a future feature: the device where a photo was added remembers the original, other devices show the uploaded compressed copy, and an account-wide setting can turn uploading off. In v1 every photo is uploaded.
+- At the project owner's request, Claude updated the documents and backlog to match.
+
+Recorded in:
+
+```text
+product-spec.md
+docs/database-schema.md
+docs/tasks.md
+```
+
 ---
 
 # AI Contributions
