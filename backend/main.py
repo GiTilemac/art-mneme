@@ -1,10 +1,11 @@
 import hashlib
 import re
 import secrets
+import unicodedata
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
-from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
@@ -24,6 +25,8 @@ app = FastAPI(
 SESSION_COOKIE = "session"
 SESSION_DAYS = 30
 SESSION_SECONDS = SESSION_DAYS * 24 * 60 * 60
+PAGE_SIZE = 50
+NAME_MAX_LENGTH = 200
 
 password_hasher = PasswordHasher()
 # Checked against when the email has no account, so that case takes as long as a wrong password.
@@ -171,3 +174,82 @@ def logout(request: Request, user: dict = Depends(current_user), connection: Con
 @app.get("/api/auth/me")
 def me(user: dict = Depends(current_user)):
     return user
+
+
+class NewEntity(BaseModel):
+    name: str
+
+
+def cleaned(name: str) -> str:
+    """In Unicode NFC, ends trimmed, and every run of spaces (tabs, line breaks, non-breaking spaces too) one space."""
+    return " ".join(unicodedata.normalize("NFC", name).split())
+
+
+def checked_name(name: str) -> str:
+    """The cleaned name, or 422 when it breaks a rule."""
+    name = cleaned(name)
+    if not name:
+        raise HTTPException(status_code=422, detail="Name cannot be empty.")
+    if any(unicodedata.category(character) == "Cc" for character in name):
+        raise HTTPException(status_code=422, detail="Name contains characters that are not allowed.")
+    if len(name) > NAME_MAX_LENGTH:
+        raise HTTPException(status_code=422, detail=f"Name must be at most {NAME_MAX_LENGTH} characters.")
+    return name
+
+
+def add_entity_endpoints(table: str) -> None:
+    """Search and create for one community-wide list. `table` comes from the fixed list below, never from a request."""
+
+    @app.get(f"/api/{table}")
+    def search(
+        q: str = "",
+        page: int = Query(1, ge=1),
+        user: dict = Depends(current_user),
+        connection: Connection = Depends(get_connection),
+    ):
+        # `%`, `_` and `\` are matched as themselves.
+        pattern = "%" + cleaned(q).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        total = connection.execute(
+            text(f"SELECT count(*) FROM {table} WHERE lower(name) LIKE lower(:pattern)"), {"pattern": pattern}
+        ).scalar()
+        offset = (page - 1) * PAGE_SIZE
+        items = []
+        # A page after the last is empty; not asking the database also keeps a huge offset away from it.
+        if offset < total:
+            items = connection.execute(
+                text(
+                    f"SELECT id, name FROM {table} WHERE lower(name) LIKE lower(:pattern) "
+                    "ORDER BY lower(name), id LIMIT :limit OFFSET :offset"
+                ),
+                {"pattern": pattern, "limit": PAGE_SIZE, "offset": offset},
+            ).all()
+        return {
+            "items": [{"id": item.id, "name": item.name} for item in items],
+            "total": total,
+            "page": page,
+            "page_size": PAGE_SIZE,
+        }
+
+    @app.post(f"/api/{table}", status_code=201)
+    def create(
+        new: NewEntity,
+        response: Response,
+        user: dict = Depends(current_user),
+        connection: Connection = Depends(get_connection),
+    ):
+        name = checked_name(new.name)
+        entity = connection.execute(
+            text(f"INSERT INTO {table} (name) VALUES (:name) ON CONFLICT DO NOTHING RETURNING id, name"),
+            {"name": name},
+        ).one_or_none()
+        if entity is None:
+            # The unique lower(name) index refused it: the name already exists.
+            entity = connection.execute(
+                text(f"SELECT id, name FROM {table} WHERE lower(name) = lower(:name)"), {"name": name}
+            ).one()
+            response.status_code = 200
+        return {"id": entity.id, "name": entity.name}
+
+
+for table in ("artists", "movements", "subjects"):
+    add_entity_endpoints(table)
