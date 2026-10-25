@@ -438,6 +438,9 @@ def artwork_response(connection: Connection, artwork_id: int) -> dict:
         ),
         {"id": artwork_id},
     ).all()
+    detail_photo_ids = connection.execute(
+        text("SELECT id FROM detail_photos WHERE artwork_id = :id ORDER BY id"), {"id": artwork_id}
+    ).scalars().all()
     date = None
     if row.year_start is not None:
         date = {
@@ -465,7 +468,7 @@ def artwork_response(connection: Connection, artwork_id: int) -> dict:
         "notes": row.notes,
         "has_photo": row.artwork_photo_path is not None,
         "photo_version": photo_version(row.artwork_photo_path),
-        "detail_photo_ids": [],
+        "detail_photo_ids": list(detail_photo_ids),
         "is_discoverable": row.is_discoverable,
         "are_notes_discoverable": row.are_notes_discoverable,
         "created_at": row.created_at,
@@ -480,6 +483,27 @@ def refuse_unknown_entry(connection: Connection, table: str, id: int | None, lab
         raise HTTPException(status_code=422, detail=f"This {label} does not exist.")
 
 
+def validated(sent: dict) -> ArtworkInput:
+    """The artwork fields as sent, or 422 naming the first field with a wrong type."""
+    try:
+        return ArtworkInput.model_validate(sent)
+    except ValidationError as error:
+        first = error.errors()[0]
+        field = ".".join(str(part) for part in first["loc"])
+        detail = f"The field '{field}' is required." if first["type"] == "missing" else f"The field '{field}' is not valid: {first['msg']}."
+        raise HTTPException(status_code=422, detail=detail) from None
+
+
+def checked_tag_ids(connection: Connection, ids: list[int]) -> list[int]:
+    """The different tag ids, sorted, or 422 when one of them does not exist."""
+    tag_ids = sorted(set(ids))
+    known = [id for id in tag_ids if 1 <= id <= INT_MAX]
+    found = connection.execute(text("SELECT count(*) FROM tags WHERE id = ANY(:ids)"), {"ids": known}).scalar()
+    if found != len(tag_ids):
+        raise HTTPException(status_code=422, detail="One or more tags do not exist.")
+    return tag_ids
+
+
 def create_artwork(
     connection: Connection, user: dict, artwork_text: str | None, state: str | None, photo: bytes | None
 ) -> dict:
@@ -492,13 +516,7 @@ def create_artwork(
             raise ValueError
     except (ValueError, RecursionError):
         raise HTTPException(status_code=422, detail="The 'artwork' part must be a JSON object.") from None
-    try:
-        artwork = ArtworkInput.model_validate(sent)
-    except ValidationError as error:
-        first = error.errors()[0]
-        field = ".".join(str(part) for part in first["loc"])
-        detail = f"The field '{field}' is required." if first["type"] == "missing" else f"The field '{field}' is not valid: {first['msg']}."
-        raise HTTPException(status_code=422, detail=detail) from None
+    artwork = validated(sent)
     state = "COLLECTION" if state is None else state
     if state not in ("COLLECTION", "WATCHLIST"):
         raise HTTPException(status_code=422, detail="State must be COLLECTION or WATCHLIST.")
@@ -516,11 +534,7 @@ def create_artwork(
     refuse_unknown_entry(connection, "artists", artwork.artist_id, "artist")
     refuse_unknown_entry(connection, "subjects", artwork.subject_id, "subject")
     refuse_unknown_entry(connection, "movements", artwork.movement_id, "movement")
-    tag_ids = sorted(set(artwork.tag_ids))
-    known = [id for id in tag_ids if 1 <= id <= INT_MAX]
-    found = connection.execute(text("SELECT count(*) FROM tags WHERE id = ANY(:ids)"), {"ids": known}).scalar()
-    if found != len(tag_ids):
-        raise HTTPException(status_code=422, detail="One or more tags do not exist.")
+    tag_ids = checked_tag_ids(connection, artwork.tag_ids)
 
     path = None if photo is None else photos.save(photo)
     try:
@@ -588,3 +602,105 @@ async def create_artwork_endpoint(
     return await run_in_threadpool(
         create_artwork, connection, user, text_of(form.get("artwork")), text_of(form.get("state")), photo
     )
+
+
+NOT_FOUND = "Artwork not found."
+KEEP_WHILE_DISCOVERABLE = "An artwork must keep its title, artist and date while it is discoverable."
+
+
+def own_artwork(connection: Connection, user: dict, artwork_id: str):
+    """The calling user's artwork row, or 404 (also for another user's artwork and for an id that is no valid number)."""
+    row = None
+    if artwork_id.isascii() and artwork_id.isdigit() and 1 <= int(artwork_id) <= INT_MAX:
+        row = connection.execute(
+            text("SELECT * FROM artworks WHERE id = :id AND user_id = :user_id"),
+            {"id": int(artwork_id), "user_id": user["id"]},
+        ).one_or_none()
+    if row is None:
+        raise HTTPException(status_code=404, detail=NOT_FOUND)
+    return row
+
+
+@app.get("/api/artworks/{artwork_id}")
+def get_artwork(artwork_id: str, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)):
+    return artwork_response(connection, own_artwork(connection, user, artwork_id).id)
+
+
+@app.patch("/api/artworks/{artwork_id}")
+async def edit_artwork_endpoint(
+    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+):
+    artwork = own_artwork(connection, user, artwork_id)
+    body = await request.body()
+    if not body:
+        raise HTTPException(status_code=422, detail="The request body is missing.")
+    try:
+        sent = json.loads(body.decode())
+    except (ValueError, RecursionError):
+        raise HTTPException(status_code=422, detail="The request body is not valid JSON.") from None
+    if not isinstance(sent, dict):
+        raise HTTPException(status_code=422, detail="The request body must be a JSON object.")
+    return await run_in_threadpool(edit_artwork, connection, artwork, sent)
+
+
+def edit_artwork(connection: Connection, artwork, sent: dict) -> dict:
+    """Changes only the fields present in `sent` (even as null), all or nothing."""
+    # Only the fields that were sent are checked, so a wrong type in one that was not sent cannot matter.
+    fields = {name: sent[name] for name in ArtworkInput.model_fields if name in sent}
+    new = validated(fields)
+    changes = {}
+    if "title" in fields:
+        changes["title"] = checked_text(new.title, "Title", TITLE_MAX_LENGTH)
+    if "museum" in fields:
+        changes["museum"] = checked_text(new.museum, "Museum", MUSEUM_MAX_LENGTH)
+    if "notes" in fields:
+        changes["notes"] = checked_text(new.notes, "Notes", NOTES_MAX_LENGTH, notes=True)
+    if "date" in fields:
+        year_start, year_end, circa, _ = checked_date(new.date)
+        changes["year_start"], changes["year_end"], changes["date_is_circa"] = year_start, year_end, circa
+        changes["date_display"] = None if year_start is None else date_display(year_start, year_end, circa)
+    for name, table, label in (("artist_id", "artists", "artist"), ("subject_id", "subjects", "subject"), ("movement_id", "movements", "movement")):
+        if name in fields:
+            refuse_unknown_entry(connection, table, getattr(new, name), label)
+            changes[name] = getattr(new, name)
+    tag_ids = checked_tag_ids(connection, new.tag_ids) if "tag_ids" in fields else None
+    if artwork.is_discoverable:
+        result = {**artwork._mapping, **changes}
+        if not result["title"] or result["artist_id"] is None or result["year_start"] is None:
+            raise HTTPException(status_code=422, detail=KEEP_WHILE_DISCOVERABLE)
+
+    with connection.begin_nested():
+        # Column names come from the fixed code above, never from the request.
+        assignments = "".join(f"{column} = :{column}, " for column in changes)
+        connection.execute(
+            text(f"UPDATE artworks SET {assignments}updated_at = clock_timestamp() WHERE id = :id"),
+            {**changes, "id": artwork.id},
+        )
+        if tag_ids is not None:
+            connection.execute(
+                text("DELETE FROM artwork_tags WHERE artwork_id = :id AND tag_id != ALL(CAST(:ids AS integer[]))"),
+                {"id": artwork.id, "ids": tag_ids},
+            )
+            connection.execute(
+                text(
+                    "INSERT INTO artwork_tags (artwork_id, tag_id) SELECT :id, unnest(CAST(:ids AS integer[])) "
+                    "ON CONFLICT DO NOTHING"
+                ),
+                {"id": artwork.id, "ids": tag_ids},
+            )
+    return artwork_response(connection, artwork.id)
+
+
+@app.delete("/api/artworks/{artwork_id}", status_code=204)
+def delete_artwork(artwork_id: str, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)):
+    artwork = own_artwork(connection, user, artwork_id)
+    with connection.begin_nested():
+        paths = connection.execute(
+            text("SELECT path FROM detail_photos WHERE artwork_id = :id ORDER BY id"), {"id": artwork.id}
+        ).scalars().all()
+        if artwork.artwork_photo_path is not None:
+            paths = [artwork.artwork_photo_path, *paths]
+        connection.execute(text("DELETE FROM artworks WHERE id = :id"), {"id": artwork.id})
+        # If storage fails, the database change is undone and the 503 handler answers.
+        for path in paths:
+            photos.delete(path)
