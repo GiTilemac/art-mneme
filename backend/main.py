@@ -260,3 +260,64 @@ def add_entity_endpoints(table: str) -> None:
 
 for table in ("artists", "movements", "subjects"):
     add_entity_endpoints(table)
+
+
+TAG_MIN_LENGTH = 2
+TAG_MAX_LENGTH = 50
+SUGGESTION_LIMIT = 10
+TAG_CHARACTERS_NOT_ALLOWED = "Tags may only contain letters, numbers, spaces and hyphens."
+
+
+def allowed_in_tag(name: str) -> bool:
+    """Only letters, numbers, marks (the parts of letters such as accents), spaces and hyphens."""
+    return all(unicodedata.category(c)[0] in "LNM" or c in " -" for c in name)
+
+
+def lowercased(name: str) -> str:
+    """Cleaned, then lowercased (plain `lower`, not `casefold`, so `ß` stays `ß`)."""
+    return cleaned(name).lower()
+
+
+@app.post("/api/tags", status_code=201)
+def create_tag(
+    new: NewEntity,
+    response: Response,
+    user: dict = Depends(current_user),
+    connection: Connection = Depends(get_connection),
+):
+    name = lowercased(new.name)
+    if not name:
+        raise HTTPException(status_code=422, detail="Name cannot be empty.")
+    if not TAG_MIN_LENGTH <= len(name) <= TAG_MAX_LENGTH:
+        raise HTTPException(status_code=422, detail="Tags must be 2–50 characters.")
+    if not allowed_in_tag(name):
+        raise HTTPException(status_code=422, detail=TAG_CHARACTERS_NOT_ALLOWED)
+    if not any(unicodedata.category(c)[0] in "LN" for c in name):
+        raise HTTPException(status_code=422, detail="A tag needs at least one letter or number.")
+    tag = connection.execute(
+        text("INSERT INTO tags (name) VALUES (:name) ON CONFLICT DO NOTHING RETURNING id, name"), {"name": name}
+    ).one_or_none()
+    if tag is None:
+        # The unique lower(name) index refused it: the tag already exists.
+        tag = connection.execute(text("SELECT id, name FROM tags WHERE name = :name"), {"name": name}).one()
+        response.status_code = 200
+    return {"id": tag.id, "name": tag.name}
+
+
+@app.get("/api/tags/suggestions")
+def suggest_tags(
+    q: str = "", user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+):
+    q = lowercased(q)
+    # No tag could contain such a q (this also keeps `%`, `_` and `\` out of the LIKE pattern); the database
+    # is not asked, as it cannot hold a NUL character.
+    if len(q) > TAG_MAX_LENGTH or not allowed_in_tag(q):
+        return []
+    tags = connection.execute(
+        text(
+            "SELECT id, name FROM tags WHERE usage_count >= 2 AND name LIKE :pattern "
+            "ORDER BY usage_count DESC, name LIMIT :limit"
+        ),
+        {"pattern": f"%{q}%", "limit": SUGGESTION_LIMIT},
+    ).all()
+    return [{"id": tag.id, "name": tag.name} for tag in tags]
