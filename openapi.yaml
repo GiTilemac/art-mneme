@@ -375,6 +375,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/StorageUnavailable"
 
   /artworks/duplicates:
     get:
@@ -483,6 +485,8 @@ paths:
           $ref: "#/components/responses/NotLoggedIn"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/StorageUnavailable"
 
   /artworks/{artwork_id}/photo:
     parameters:
@@ -509,6 +513,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/Invalid"
+        "503":
+          $ref: "#/components/responses/StorageUnavailable"
     get:
       tags: [Photos]
       summary: Get the artwork photo
@@ -524,6 +530,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+        "503":
+          $ref: "#/components/responses/StorageUnavailable"
 
   /artworks/{artwork_id}/detail-photos:
     parameters:
@@ -546,6 +554,8 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/Invalid"
+        "503":
+          $ref: "#/components/responses/StorageUnavailable"
 
   /artworks/{artwork_id}/detail-photos/{photo_id}:
     parameters:
@@ -566,6 +576,8 @@ paths:
           $ref: "#/components/responses/NotLoggedIn"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/StorageUnavailable"
     delete:
       tags: [Photos]
       summary: Delete a detail photo
@@ -581,6 +593,8 @@ paths:
           $ref: "#/components/responses/NotLoggedIn"
         "404":
           $ref: "#/components/responses/NotFound"
+        "503":
+          $ref: "#/components/responses/StorageUnavailable"
 
   /artworks/{artwork_id}/discoverable:
     parameters:
@@ -776,6 +790,12 @@ components:
             $ref: "#/components/schemas/Error"
     Invalid:
       description: The input breaks a rule; `detail` says which.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    StorageUnavailable:
+      description: The photo storage cannot be reached right now; try again later.
       content:
         application/json:
           schema:
