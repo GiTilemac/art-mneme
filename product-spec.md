@@ -656,6 +656,8 @@ Edit Metadata
 
 Edit Notes
 
+Delete Artwork
+
 Explore Relationships
 ```
 
