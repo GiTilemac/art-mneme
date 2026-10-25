@@ -281,6 +281,21 @@ openapi.yaml
 README.md
 ```
 
+Create artwork API (backlog task 7, GitHub issue #7):
+
+- The project owner groomed the task and decided, on 2026-10-25: the text limits (title 300, museum 200, notes 10,000 characters); a BC choice for each year (`from_bc`, `to_bc`) and the year limits (an AD year not later than the current year, a BC year up to 100,000); `photo_version` and the `?v=` parameter of the photo request; the cleaning of title, museum and notes; `422` (not `404`) for an id that does not exist; the order of checks, photo before database and the photo deleted again when the database step fails; `python-multipart` as a dependency; and the `product-spec.md` Date Entry wording.
+- Claude made the approved `openapi.yaml` and `product-spec.md` changes first, each in its own commit, keeping the line endings, and added `python-multipart` with `uv add`.
+- Claude wrote `POST /api/artworks` in `backend/main.py` (reusing the login check, the `Error`-shaped `422` handler, the cleaning and control-character check of #4, the tag trigger of #5 and `backend/photos.py` of #6), with the date display function and the shared `Artwork` builder (with `photo_version`) for later tasks. In `backend/photos.py` the JPEG and size check became its own function, `check`, so it runs before anything is stored.
+- Claude wrote tests for the acceptance criteria (rare characters tested once, in a shared place) and ran the full test suite against the local test database.
+
+Recorded in:
+
+```text
+backend/
+openapi.yaml
+product-spec.md
+```
+
 ---
 
 # AI Contributions
