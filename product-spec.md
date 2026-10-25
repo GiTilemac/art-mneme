@@ -247,7 +247,9 @@ To year       (optional)
 
 Circa         (checkbox)
 
-BC            (checkbox)
+BC for From year   (checkbox)
+
+BC for To year     (checkbox)
 ```
 
 The displayed date is generated from these.
@@ -262,7 +264,13 @@ Examples:
 c. 1600
 
 c. 450 BC
+
+500–450 BC
+
+30 BC – 14 AD
 ```
+
+The From year must not be after the To year, counting BC before AD. There is no year 0. An AD year cannot be later than the current year; a BC year cannot be above 100,000.
 
 ---
 
