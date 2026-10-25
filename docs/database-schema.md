@@ -503,6 +503,8 @@ Autocomplete prioritizes:
 Frequently-used tags
 ```
 
+usage_count is the number of different users who have the tag on at least one of their artworks, private artworks included.
+
 Tags with usage_count below 2 are hidden from suggestions.
 
 Hidden tags remain valid database records.
@@ -847,6 +849,8 @@ User email is unique, ignoring capital letters
 One link per artwork and tag
 
 Tag.usage_count is never below 0
+
+Tag.usage_count equals the number of different users who have the tag on at least one of their artworks
 
 year_start and year_end are never 0 (there is no year 0; 1 BC is -1)
 
