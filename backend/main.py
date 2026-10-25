@@ -5,10 +5,12 @@ import secrets
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, FastAPI, HTTPException, Request, Response
+from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import Connection, text
+from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from db import get_engine
 
@@ -44,6 +46,14 @@ def validation_error(request: Request, error: RequestValidationError):
     else:
         detail = f"The field '{field}' is not valid: {first['msg']}."
     return JSONResponse(status_code=422, content={"detail": detail})
+
+
+@app.exception_handler(StarletteHTTPException)
+async def body_parsing_error(request: Request, error: StarletteHTTPException):
+    """FastAPI answers a body it cannot read (such as one that is not UTF-8) with 400; it is invalid JSON too."""
+    if error.status_code == 400 and error.detail == "There was an error parsing the body":
+        return JSONResponse(status_code=422, content={"detail": "The request body is not valid JSON."})
+    return await http_exception_handler(request, error)
 
 
 def get_connection():

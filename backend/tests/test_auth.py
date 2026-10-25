@@ -181,6 +181,14 @@ def test_registering_with_a_body_that_is_not_json_text_is_refused_in_the_error_s
     assert count_users(conn) == 0
 
 
+@pytest.mark.parametrize("path", ["/api/auth/register", "/api/auth/login"])
+def test_body_that_is_not_valid_utf8_is_refused_in_the_error_shape(client, conn, path):
+    response = client.post(path, content=b'{"email":"\xff"}', headers={"Content-Type": "application/json"})
+
+    assert_error_shape(response)
+    assert count_users(conn) == 0
+
+
 # Validation errors in the Error shape, for the whole API
 
 
