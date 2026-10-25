@@ -244,6 +244,7 @@ Artist, movement and subject API (backlog task 4, GitHub issue #4):
 - Claude made the approved `openapi.yaml` changes and wrote one implementation of `GET` and `POST` shared by `/api/artists`, `/api/movements` and `/api/subjects`, with one function that cleans names and search text (ends trimmed, inner spaces reduced to one, Unicode NFC), reusing the login check and error handlers from #3.
 - Claude wrote tests for every acceptance criterion, each shared rule on all three lists, including two threads that create the same new name at the same moment, and ran the full test suite against the local test database: 448 passed.
 - Claude found two cases the acceptance criteria do not cover that answer `500`: a name containing a lone UTF-16 surrogate (such as `"\ud800"` in the JSON body), and a NUL character in the search text `q`. They were reported on the issue for the project owner to decide, not changed.
+- The project owner then decided both cases, and that the rarer characters `str.split()` treats as whitespace stay spaces. Claude first wrote tests that reproduced the two `500`s, then refused control characters in `q`, and lone surrogates in names and `q`, with the same `422` message, and added tests documenting the rarer whitespace. The suite then passed with 503 tests.
 
 Recorded in:
 
