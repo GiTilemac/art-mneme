@@ -177,6 +177,8 @@ Next.js and Supabase were rejected because they weaken the separation between Fr
 Cloudflare R2, used from day one.
 ```
 
+Production keeps photos in a private R2 bucket. Development and tests use a local folder chosen by `PHOTO_DIR`.
+
 ---
 
 ## Authentication Mechanism

@@ -266,6 +266,21 @@ Recorded in:
 backend/
 ```
 
+Private photo storage (backlog task 6, GitHub issue #6):
+
+- The project owner groomed the task and decided, on 2026-10-25: photos are kept in a local folder chosen by `PHOTO_DIR` in development and tests and in a private Cloudflare R2 bucket in production; the stored path is a flat 32-character hexadecimal name plus `.jpg`; the 10 MB limit and the two refusal messages; a 10-second timeout and a `503` answer with its message when R2 cannot be reached; R2 is tested with botocore's `Stubber`; the `StorageUnavailable` response in `openapi.yaml`; `boto3` as a dependency; and that photos are served through the backend in v1.
+- Claude made the approved `openapi.yaml` change first, in its own commit, keeping the line endings, and added `boto3` with `uv add`.
+- Claude wrote `backend/photos.py` (save, read and delete, with the local folder and R2 behind them) and the `503` handler in `backend/main.py`, and the README, `.gitignore` and `docs/architecture.md` lines.
+- Claude wrote tests for every acceptance criterion against a temporary folder and simulated R2 answers (no network), and ran the full test suite against the local test database.
+
+Recorded in:
+
+```text
+backend/
+openapi.yaml
+README.md
+```
+
 ---
 
 # AI Contributions

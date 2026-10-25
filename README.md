@@ -237,6 +237,26 @@ The backend and the tests find these databases through two environment variables
 
 The port in these values must match your local server (for example 5433). These are local development values only; no `.env` file is read.
 
+## Photo storage
+
+Photos are stored by `backend/photos.py`, in one of two places:
+
+| Variable | Used by | Value |
+|----------|---------|-------|
+| `PHOTO_DIR` | the backend (development) | a folder, created if missing. Local value: `$PWD/photos` (ignored by git) |
+| `R2_ACCOUNT_ID` | the backend (production) | the Cloudflare account id |
+| `R2_BUCKET` | the backend (production) | the name of the private R2 bucket |
+| `R2_ACCESS_KEY_ID` | the backend (production) | the API token's access key id |
+| `R2_SECRET_ACCESS_KEY` | the backend (production) | the API token's secret |
+
+If `PHOTO_DIR` is set, photos are files in that folder and the R2 variables are not used. If it is not set, all four R2 variables are needed. They are only checked when photo storage is first used. For local development:
+
+```bash
+export PHOTO_DIR=$PWD/photos
+```
+
+The R2 account, the bucket and its API token are created by the project owner, not by the developer. The bucket must keep public access turned off (no `r2.dev` address, no custom domain), and its API token needs only object read and write rights on that one bucket. Never commit these values. The tests use a temporary folder and simulated R2 answers; they never contact R2.
+
 ## Install
 
 No variables needed.
