@@ -1,16 +1,20 @@
 import hashlib
+import json
 import re
 import secrets
 import unicodedata
+from datetime import UTC, datetime
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
 from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
+from fastapi.concurrency import run_in_threadpool
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import Connection, text
+from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import photos
@@ -193,10 +197,10 @@ def cleaned(name: str) -> str:
     return " ".join(unicodedata.normalize("NFC", name).split())
 
 
-def refuse_characters_not_allowed(name: str) -> None:
-    """422 for a control character or a lone surrogate (which the database cannot store)."""
-    if any(unicodedata.category(character) in ("Cc", "Cs") for character in name):
-        raise HTTPException(status_code=422, detail="Name contains characters that are not allowed.")
+def refuse_characters_not_allowed(name: str, label: str = "Name", allowed: str = "") -> None:
+    """422 for a control character or a lone surrogate (which the database cannot store), except those in `allowed`."""
+    if any(unicodedata.category(c) in ("Cc", "Cs") and c not in allowed for c in name):
+        raise HTTPException(status_code=422, detail=f"{label} contains characters that are not allowed.")
 
 
 def checked_name(name: str) -> str:
@@ -328,3 +332,259 @@ def suggest_tags(
         {"pattern": "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%", "limit": SUGGESTION_LIMIT},
     ).all()
     return [{"id": tag.id, "name": tag.name} for tag in tags]
+
+
+# Artworks
+
+INT_MAX = 2**31 - 1
+MAX_BC_YEAR = 100_000
+TITLE_MAX_LENGTH = 300
+MUSEUM_MAX_LENGTH = 200
+NOTES_MAX_LENGTH = 10_000
+
+
+class StrictInput(BaseModel):
+    """Exact types (no "3" for 3). Extra fields are ignored."""
+
+    model_config = ConfigDict(strict=True)
+
+
+class DateInput(StrictInput):
+    from_year: int
+    to_year: int | None = None
+    circa: bool = False
+    from_bc: bool = False
+    to_bc: bool = False
+
+
+class ArtworkInput(StrictInput):
+    title: str = ""
+    artist_id: int | None = None
+    date: DateInput | None = None
+    subject_id: int | None = None
+    movement_id: int | None = None
+    museum: str = ""
+    tag_ids: list[int] = []
+    notes: str = ""
+
+
+def date_display(year_start: int, year_end: int | None, circa: bool) -> str:
+    """The date as shown, from the stored signed years (BC negative): `1642`, `500–450 BC`, `c. 30 BC – 14 AD`."""
+    if year_end is None or year_end == year_start:
+        shown = f"{-year_start} BC" if year_start < 0 else str(year_start)
+    elif year_start < 0 < year_end:
+        shown = f"{-year_start} BC – {year_end} AD"
+    elif year_end < 0:
+        shown = f"{-year_start}–{-year_end} BC"
+    else:
+        shown = f"{year_start}–{year_end}"
+    return f"c. {shown}" if circa else shown
+
+
+def checked_text(value: str, label: str, max_length: int, notes: bool = False) -> str:
+    """Title and museum are cleaned like names; notes keep their layout. Refuses control characters and long text."""
+    if notes:
+        value = unicodedata.normalize("NFC", value)
+        refuse_characters_not_allowed(value, label, allowed="\t\n\r")
+    else:
+        value = cleaned(value)
+        refuse_characters_not_allowed(value, label)
+    if len(value) > max_length:
+        raise HTTPException(status_code=422, detail=f"{label} must be at most {max_length:,} characters.")
+    return value
+
+
+def checked_date(date: DateInput | None) -> tuple[int | None, int | None, bool, bool]:
+    """The signed years (BC negative), Circa and the effective `to_bc`, or 422 when the date breaks a rule."""
+    if date is None:
+        return None, None, False, False
+    this_year = datetime.now(UTC).year
+    for year, bc in ((date.from_year, date.from_bc), (date.to_year, date.to_bc and date.to_year is not None)):
+        if year is None:
+            continue
+        if year < 1:
+            raise HTTPException(status_code=422, detail="A year must be 1 or more; use the BC box for years before 1 AD.")
+        if bc and year > MAX_BC_YEAR:
+            raise HTTPException(status_code=422, detail="A BC year cannot be above 100,000.")
+        if not bc and year > this_year:
+            raise HTTPException(status_code=422, detail="A year cannot be in the future.")
+    to_bc = date.to_bc and date.to_year is not None
+    year_start = -date.from_year if date.from_bc else date.from_year
+    year_end = None if date.to_year is None else -date.to_year if to_bc else date.to_year
+    if year_end is not None and year_end < year_start:
+        raise HTTPException(status_code=422, detail="The end year cannot be before the start year.")
+    return year_start, year_end, date.circa, to_bc
+
+
+def photo_version(path: str | None) -> str | None:
+    return None if path is None else hashlib.sha256(path.encode()).hexdigest()[:16]
+
+
+def artwork_response(connection: Connection, artwork_id: int) -> dict:
+    """The `Artwork` of one row, as in openapi.yaml."""
+    row = connection.execute(
+        text(
+            "SELECT a.*, artists.name AS artist_name, subjects.name AS subject_name, movements.name AS movement_name "
+            "FROM artworks a LEFT JOIN artists ON artists.id = a.artist_id "
+            "LEFT JOIN subjects ON subjects.id = a.subject_id LEFT JOIN movements ON movements.id = a.movement_id "
+            "WHERE a.id = :id"
+        ),
+        {"id": artwork_id},
+    ).one()
+    tags = connection.execute(
+        text(
+            "SELECT tags.id, tags.name FROM artwork_tags JOIN tags ON tags.id = tag_id "
+            "WHERE artwork_id = :id ORDER BY lower(tags.name), tags.id"
+        ),
+        {"id": artwork_id},
+    ).all()
+    date = None
+    if row.year_start is not None:
+        date = {
+            "from_year": abs(row.year_start),
+            "to_year": None if row.year_end is None else abs(row.year_end),
+            "circa": row.date_is_circa,
+            "from_bc": row.year_start < 0,
+            "to_bc": row.year_end is not None and row.year_end < 0,
+            "display": row.date_display,
+        }
+
+    def entry(id, name):
+        return None if id is None else {"id": id, "name": name}
+
+    return {
+        "id": row.id,
+        "state": row.collection_state,
+        "title": row.title,
+        "artist": entry(row.artist_id, row.artist_name),
+        "date": date,
+        "subject": entry(row.subject_id, row.subject_name),
+        "movement": entry(row.movement_id, row.movement_name),
+        "museum": row.museum,
+        "tags": [{"id": tag.id, "name": tag.name} for tag in tags],
+        "notes": row.notes,
+        "has_photo": row.artwork_photo_path is not None,
+        "photo_version": photo_version(row.artwork_photo_path),
+        "detail_photo_ids": [],
+        "is_discoverable": row.is_discoverable,
+        "are_notes_discoverable": row.are_notes_discoverable,
+        "created_at": row.created_at,
+    }
+
+
+def refuse_unknown_entry(connection: Connection, table: str, id: int | None, label: str) -> None:
+    """422 when `id` (an artist, subject or movement; `table` is fixed in the code below) does not exist."""
+    if id is None:
+        return
+    if not 1 <= id <= INT_MAX or connection.execute(text(f"SELECT 1 FROM {table} WHERE id = :id"), {"id": id}).first() is None:
+        raise HTTPException(status_code=422, detail=f"This {label} does not exist.")
+
+
+def create_artwork(
+    connection: Connection, user: dict, artwork_text: str | None, state: str | None, photo: bytes | None
+) -> dict:
+    """Checks everything that needs no storage, then stores the photo and saves the artwork in one step."""
+    if artwork_text is None:
+        raise HTTPException(status_code=422, detail="The 'artwork' part is missing.")
+    try:
+        sent = json.loads(artwork_text)
+        if not isinstance(sent, dict):
+            raise ValueError
+    except (ValueError, RecursionError):
+        raise HTTPException(status_code=422, detail="The 'artwork' part must be a JSON object.") from None
+    try:
+        artwork = ArtworkInput.model_validate(sent)
+    except ValidationError as error:
+        first = error.errors()[0]
+        field = ".".join(str(part) for part in first["loc"])
+        detail = f"The field '{field}' is required." if first["type"] == "missing" else f"The field '{field}' is not valid: {first['msg']}."
+        raise HTTPException(status_code=422, detail=detail) from None
+    state = "COLLECTION" if state is None else state
+    if state not in ("COLLECTION", "WATCHLIST"):
+        raise HTTPException(status_code=422, detail="State must be COLLECTION or WATCHLIST.")
+    if state == "COLLECTION" and photo is None:
+        raise HTTPException(status_code=422, detail="Add a photo to put this artwork in your collection.")
+    if photo is not None:
+        try:
+            photos.check(photo)
+        except photos.InvalidPhoto as error:
+            raise HTTPException(status_code=422, detail=str(error)) from None
+    title = checked_text(artwork.title, "Title", TITLE_MAX_LENGTH)
+    museum = checked_text(artwork.museum, "Museum", MUSEUM_MAX_LENGTH)
+    notes = checked_text(artwork.notes, "Notes", NOTES_MAX_LENGTH, notes=True)
+    year_start, year_end, circa, _ = checked_date(artwork.date)
+    refuse_unknown_entry(connection, "artists", artwork.artist_id, "artist")
+    refuse_unknown_entry(connection, "subjects", artwork.subject_id, "subject")
+    refuse_unknown_entry(connection, "movements", artwork.movement_id, "movement")
+    tag_ids = sorted(set(artwork.tag_ids))
+    known = [id for id in tag_ids if 1 <= id <= INT_MAX]
+    found = connection.execute(text("SELECT count(*) FROM tags WHERE id = ANY(:ids)"), {"ids": known}).scalar()
+    if found != len(tag_ids):
+        raise HTTPException(status_code=422, detail="One or more tags do not exist.")
+
+    path = None if photo is None else photos.save(photo)
+    try:
+        with connection.begin_nested():
+            artwork_id = connection.execute(
+                text(
+                    "INSERT INTO artworks (user_id, collection_state, title, artist_id, date_display, year_start, "
+                    "year_end, date_is_circa, subject_id, movement_id, museum, notes, artwork_photo_path) "
+                    "VALUES (:user_id, :state, :title, :artist_id, :date_display, :year_start, :year_end, :circa, "
+                    ":subject_id, :movement_id, :museum, :notes, :path) RETURNING id"
+                ),
+                {
+                    "user_id": user["id"],
+                    "state": state,
+                    "title": title,
+                    "artist_id": artwork.artist_id,
+                    "date_display": None if year_start is None else date_display(year_start, year_end, circa),
+                    "year_start": year_start,
+                    "year_end": year_end,
+                    "circa": circa,
+                    "subject_id": artwork.subject_id,
+                    "movement_id": artwork.movement_id,
+                    "museum": museum,
+                    "notes": notes,
+                    "path": path,
+                },
+            ).scalar()
+            if tag_ids:
+                connection.execute(
+                    text("INSERT INTO artwork_tags (artwork_id, tag_id) SELECT :artwork_id, unnest(CAST(:ids AS integer[]))"),
+                    {"artwork_id": artwork_id, "ids": tag_ids},
+                )
+            return artwork_response(connection, artwork_id)
+    except Exception:
+        if path is not None:
+            photos.delete(path)
+        raise
+
+
+def text_of(part) -> str | None:
+    """A form part as text: a plain field as it is, a file part (what a browser sends for a Blob) decoded as UTF-8."""
+    if part is None or isinstance(part, str):
+        return part
+    try:
+        return part.file.read().decode()
+    except UnicodeDecodeError:
+        raise HTTPException(status_code=422, detail="A part of the request is not valid UTF-8 text.") from None
+
+
+@app.post("/api/artworks", status_code=201)
+async def create_artwork_endpoint(
+    request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+):
+    if not request.headers.get("content-type", "").startswith("multipart/form-data"):
+        raise HTTPException(status_code=422, detail="The request must be multipart/form-data.")
+    try:
+        form = await request.form()
+    except StarletteHTTPException:
+        raise HTTPException(status_code=422, detail="The request is not valid multipart/form-data.") from None
+    photo = form.get("photo")
+    if isinstance(photo, UploadFile):
+        photo = await photo.read()
+    elif photo is not None:
+        raise HTTPException(status_code=422, detail="The photo must be sent as a file.")
+    return await run_in_threadpool(
+        create_artwork, connection, user, text_of(form.get("artwork")), text_of(form.get("state")), photo
+    )

@@ -74,12 +74,17 @@ def r2_call(operation, **arguments):
         raise StorageUnavailable from None
 
 
-def save(data: bytes) -> str:
-    """Stores a JPEG photo and returns its new stored path."""
+def check(data: bytes) -> None:
+    """Raises InvalidPhoto unless `data` is a JPEG of at most 10 MB. Looks at the bytes only."""
     if not data.startswith(JPEG_START):
         raise InvalidPhoto("This file type is not supported.")
     if len(data) > MAX_PHOTO_BYTES:
         raise InvalidPhoto("This photo is too large.")
+
+
+def save(data: bytes) -> str:
+    """Stores a JPEG photo and returns its new stored path."""
+    check(data)
     path = secrets.token_hex(16) + ".jpg"
     folder = os.environ.get("PHOTO_DIR")
     if folder:
