@@ -238,6 +238,20 @@ openapi.yaml
 docs/database-schema.md
 ```
 
+Artist, movement and subject API (backlog task 4, GitHub issue #4):
+
+- The project owner groomed the task and approved its acceptance criteria, including the two `openapi.yaml` changes (`maxLength: 200` on `NewEntity`, the `EntityExisting` description), how names are cleaned and compared, the three error messages, and the order and paging of search results.
+- Claude made the approved `openapi.yaml` changes and wrote one implementation of `GET` and `POST` shared by `/api/artists`, `/api/movements` and `/api/subjects`, with one function that cleans names and search text (ends trimmed, inner spaces reduced to one, Unicode NFC), reusing the login check and error handlers from #3.
+- Claude wrote tests for every acceptance criterion, each shared rule on all three lists, including two threads that create the same new name at the same moment, and ran the full test suite against the local test database: 448 passed.
+- Claude found two cases the acceptance criteria do not cover that answer `500`: a name containing a lone UTF-16 surrogate (such as `"\ud800"` in the JSON body), and a NUL character in the search text `q`. They were reported on the issue for the project owner to decide, not changed.
+
+Recorded in:
+
+```text
+backend/
+openapi.yaml
+```
+
 ---
 
 # AI Contributions
