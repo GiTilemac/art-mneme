@@ -253,6 +253,19 @@ backend/
 openapi.yaml
 ```
 
+Tag API with validation and suggestions (backlog task 5, GitHub issue #5):
+
+- The project owner groomed the task and decided every rule in its acceptance criteria, including that a tag's popularity is the number of different users who have it, the tag rules and error messages, and the wording of the changes to `product-spec.md`, `docs/database-schema.md`, `docs/tasks.md` and `openapi.yaml`.
+- Claude made those approved document and contract changes first, each in its own commit, keeping the line endings of each file.
+- Claude wrote migration `0003`, a PL/pgSQL trigger on `artwork_tags` that locks the tag row and keeps `usage_count` equal to the number of different users, with a backfill for existing links, and `POST /api/tags` and `GET /api/tags/suggestions` in `backend/main.py`, reusing the login check and `cleaned()`.
+- Claude wrote tests for every acceptance criterion, including two threads creating the same tag and two threads linking the same tag, and ran the full test suite against the local test database.
+
+Recorded in:
+
+```text
+backend/
+```
+
 ---
 
 # AI Contributions
