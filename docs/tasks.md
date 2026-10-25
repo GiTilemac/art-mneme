@@ -25,7 +25,7 @@ Description: Implement the endpoints in `openapi.yaml` to search by name and cre
 
 ## 5. Tag API with validation and suggestions
 Goal: Users can create tags and get autocomplete suggestions ranked by popularity.
-Description: Implement the endpoints in `openapi.yaml` to create tags and suggest tags from typed text. Tags are case-insensitive ("Cat", "cat" and "CAT" are one tag), 2 to 50 characters long, and may contain only letters, numbers, spaces and hyphens. Suggestions put frequently used tags first, using `Tag.usage_count`, and leave out tags used on fewer than 2 artworks.
+Description: Implement the endpoints in `openapi.yaml` to create tags and suggest tags from typed text. Tags are case-insensitive ("Cat", "cat" and "CAT" are one tag), 2 to 50 characters long, and may contain only letters, numbers, spaces and hyphens. Suggestions put frequently used tags first, using `Tag.usage_count`, and leave out tags used by fewer than 2 different users.
 
 ## 6. Private photo storage
 Goal: The backend can store, read and delete photos in Cloudflare R2, and only the owner can view them.
