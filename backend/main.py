@@ -309,8 +309,7 @@ def suggest_tags(
     q: str = "", user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
 ):
     q = lowercased(q)
-    # No tag could contain such a q (this also keeps `%`, `_` and `\` out of the LIKE pattern); the database
-    # is not asked, as it cannot hold a NUL character.
+    # No tag could contain such a q; the database is not asked, as it cannot hold a NUL character.
     if len(q) > TAG_MAX_LENGTH or not allowed_in_tag(q):
         return []
     tags = connection.execute(
@@ -318,6 +317,6 @@ def suggest_tags(
             "SELECT id, name FROM tags WHERE usage_count >= 2 AND name LIKE :pattern "
             "ORDER BY usage_count DESC, name LIMIT :limit"
         ),
-        {"pattern": f"%{q}%", "limit": SUGGESTION_LIMIT},
+        {"pattern": "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%", "limit": SUGGESTION_LIMIT},
     ).all()
     return [{"id": tag.id, "name": tag.name} for tag in tags]
