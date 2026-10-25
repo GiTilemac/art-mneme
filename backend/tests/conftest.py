@@ -12,8 +12,11 @@ import sys
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import ArgumentError, OperationalError
+
+from main import app, get_connection
 
 BACKEND = Path(__file__).parent.parent
 
@@ -44,10 +47,10 @@ def empty_database(url: str) -> None:
     engine.dispose()
 
 
-def run_schema_command(url: str) -> subprocess.CompletedProcess:
-    """`alembic upgrade head`, run as from the command line, against `url`."""
+def run_schema_command(url: str, revision: str = "head") -> subprocess.CompletedProcess:
+    """`alembic upgrade head` (or another revision), run as from the command line, against `url`."""
     return subprocess.run(
-        [sys.executable, "-m", "alembic", "upgrade", "head"],
+        [sys.executable, "-m", "alembic", "upgrade", revision],
         cwd=BACKEND,
         env={**os.environ, "DATABASE_URL": url},
         capture_output=True,
@@ -104,3 +107,11 @@ def conn(engine):
         transaction = connection.begin()
         yield connection
         transaction.rollback()
+
+
+@pytest.fixture
+def client(conn):
+    """A test client whose requests use the rolled-back `conn`. The https address makes it send the Secure cookie back."""
+    app.dependency_overrides[get_connection] = lambda: conn
+    yield TestClient(app, base_url="https://testserver")
+    app.dependency_overrides.clear()

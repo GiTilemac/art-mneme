@@ -10,7 +10,7 @@ from sqlalchemy.engine import make_url
 import db
 from main import app
 
-TABLES = {"users", "artworks", "artists", "movements", "subjects", "tags", "artwork_tags", "detail_photos"}
+TABLES = {"users", "artworks", "artists", "movements", "subjects", "tags", "artwork_tags", "detail_photos", "sessions"}
 
 
 def run_tests(**env):
@@ -31,9 +31,9 @@ def movement_names(engine):
         return connection.execute(text("SELECT name FROM movements")).scalars().all()
 
 
-def all_rows(engine):
+def all_rows(engine, tables=TABLES):
     with engine.connect() as connection:
-        return {table: connection.execute(text(f"SELECT * FROM {table} ORDER BY 1, 2")).all() for table in TABLES}
+        return {table: connection.execute(text(f"SELECT * FROM {table} ORDER BY 1, 2")).all() for table in tables}
 
 
 # Connection settings
@@ -161,6 +161,28 @@ def test_schema_command_leaves_existing_user_data_untouched(engine, test_databas
             connection.execute(text("DELETE FROM tags WHERE id = :id"), {"id": tag_id})
             connection.execute(text("DELETE FROM movements WHERE id = :id"), {"id": movement_id})
             connection.execute(text("DELETE FROM users WHERE id = :id"), {"id": user_id})
+
+
+def test_sessions_migration_adds_the_table_to_a_database_built_by_the_first_schema(engine, test_database_url):
+    empty_database(test_database_url)
+    try:
+        assert run_schema_command(test_database_url, "0001").returncode == 0
+        with engine.begin() as connection:
+            connection.execute(text("INSERT INTO users (email, password_hash) VALUES ('ann@example.com', 'hash')"))
+            connection.execute(text("INSERT INTO movements (name) VALUES ('Dutch Golden Age')"))
+        before = all_rows(engine, TABLES - {"sessions"})
+
+        assert run_schema_command(test_database_url).returncode == 0
+        after_first = all_rows(engine)
+        assert run_schema_command(test_database_url).returncode == 0
+
+        assert "sessions" in inspect(engine).get_table_names()
+        assert {table: rows for table, rows in after_first.items() if table != "sessions"} == before
+        assert after_first["sessions"] == []
+        assert all_rows(engine) == after_first
+    finally:
+        empty_database(test_database_url)
+        assert run_schema_command(test_database_url).returncode == 0
 
 
 def test_backend_does_not_create_tables_when_it_starts(engine, monkeypatch, test_database_url):

@@ -51,6 +51,7 @@ COLUMNS = {
     "tags": ["id", "name", "usage_count", "created_at"],
     "artwork_tags": ["artwork_id", "tag_id", "source"],
     "detail_photos": ["id", "artwork_id", "path", "created_at"],
+    "sessions": ["id", "user_id", "token_hash", "expires_at", "created_at"],
 }
 
 COMMUNITY_TABLES = ["artists", "movements", "subjects", "tags"]
@@ -314,7 +315,43 @@ def test_detail_photo_pointing_to_missing_artwork_is_refused(conn):
         insert(conn, "detail_photos", artwork_id=999999, path="details/1.jpg")
 
 
+def test_session_pointing_to_missing_user_is_refused(conn):
+    with refused(conn):
+        insert(conn, "sessions", user_id=999999, token_hash="hash", expires_at="2030-01-01T00:00:00Z")
+
+
+@pytest.mark.parametrize("missing", ["user_id", "token_hash", "expires_at"])
+def test_session_without_user_token_hash_or_expiry_is_refused(conn, missing):
+    values = {"user_id": user(conn), "token_hash": "hash", "expires_at": "2030-01-01T00:00:00Z"}
+    del values[missing]
+    with refused(conn):
+        insert(conn, "sessions", **values)
+
+
+def test_two_sessions_with_the_same_token_hash_are_refused(conn):
+    user_id = user(conn)
+    insert(conn, "sessions", user_id=user_id, token_hash="hash", expires_at="2030-01-01T00:00:00Z")
+    with refused(conn):
+        insert(conn, "sessions", user_id=user_id, token_hash="hash", expires_at="2030-01-01T00:00:00Z")
+
+
+def test_session_expiry_is_stored_with_time_zone(conn):
+    expires_at = next(c for c in columns(conn, "sessions") if c.column_name == "expires_at")
+    assert expires_at.data_type == "timestamp with time zone"
+
+
 # Deleting
+
+
+def test_deleting_user_deletes_their_sessions_only(conn):
+    deleted, kept = user(conn, "ann@example.com"), user(conn, "bob@example.com")
+    for user_id in (deleted, kept):
+        insert(conn, "sessions", user_id=user_id, token_hash=f"hash{user_id}", expires_at="2030-01-01T00:00:00Z")
+
+    conn.execute(text("DELETE FROM users WHERE id = :id"), {"id": deleted})
+
+    assert count(conn, "sessions", "user_id = :id", id=deleted) == 0
+    assert count(conn, "sessions", "user_id = :id", id=kept) == 1
 
 
 def test_deleting_artwork_deletes_its_detail_photos_and_tag_links_only(conn):
