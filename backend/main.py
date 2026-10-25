@@ -13,6 +13,7 @@ from pydantic import BaseModel
 from sqlalchemy import Connection, text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+import photos
 from db import get_engine
 
 app = FastAPI(
@@ -57,6 +58,13 @@ async def body_parsing_error(request: Request, error: StarletteHTTPException):
     if error.status_code == 400 and error.detail == "There was an error parsing the body":
         return JSONResponse(status_code=422, content={"detail": "The request body is not valid JSON."})
     return await http_exception_handler(request, error)
+
+
+@app.exception_handler(photos.StorageUnavailable)
+def storage_unavailable(request: Request, error: photos.StorageUnavailable):
+    return JSONResponse(
+        status_code=503, content={"detail": "Photos are unavailable right now. Please try again later."}
+    )
 
 
 def get_connection():
