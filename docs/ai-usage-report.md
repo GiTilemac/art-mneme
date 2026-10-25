@@ -228,6 +228,7 @@ Registration, login and logout (backlog task 3, GitHub issue #3):
 - Claude made the approved `openapi.yaml` changes, added the `Session` section to `docs/database-schema.md`, and wrote the `sessions` migration, the four `/api/auth` endpoints, one login check that later endpoints reuse, and one handler that answers every request validation error in the `Error` shape.
 - Claude wrote tests for every acceptance criterion: register, login, logout and `/auth/me`; the cookie's flags and 30 days; renewal and expiry (by setting `expires_at` directly); two devices; email and password rules; password hashes; and the `sessions` table and migration.
 - Claude ran the full test suite against the local test database. The first run found that the new migration test read the `sessions` table before the migration had created it; Claude fixed the test, and the suite then passed with 180 tests.
+- QA found that a JSON body that is not valid UTF-8 was answered `400` with FastAPI's own message instead of `422` in the `Error` shape. Claude added a test that reproduced it, made the whole app answer such a body `422` with one sentence, and the suite then passed with 182 tests.
 
 Recorded in:
 
