@@ -412,7 +412,12 @@ paths:
           schema:
             type: boolean
             default: false
-        - name: bc
+        - name: from_bc
+          in: query
+          schema:
+            type: boolean
+            default: false
+        - name: to_bc
           in: query
           schema:
             type: boolean
@@ -518,7 +523,14 @@ paths:
     get:
       tags: [Photos]
       summary: Get the artwork photo
-      description: Only the owner can get it.
+      description: |
+        Only the owner can get it. With ?v= equal to the artwork's current photo_version the browser may keep the photo (Cache-Control: private, max-age=31536000, immutable). Without v, or with any other v, the current photo is returned with Cache-Control: private, no-store.
+      parameters:
+        - name: v
+          in: query
+          description: The artwork's photo_version.
+          schema:
+            type: string
       responses:
         "200":
           $ref: "#/components/responses/Photo"
@@ -887,20 +899,25 @@ components:
       contentMediaType: image/jpeg
 
     ArtworkDateInput:
-      description: 'Examples: 1642; 1600–1605; c. 1600; c. 450 BC.'
+      description: 'Examples: 1642; 1600–1605; c. 1600; c. 450 BC; 500–450 BC; 30 BC – 14 AD. An AD year may not be later than the current year.'
       type: object
       required: [from_year]
       properties:
         from_year:
           type: integer
           minimum: 1
+          maximum: 100000
         to_year:
           type: [integer, "null"]
           minimum: 1
+          maximum: 100000
         circa:
           type: boolean
           default: false
-        bc:
+        from_bc:
+          type: boolean
+          default: false
+        to_bc:
           type: boolean
           default: false
 
@@ -920,6 +937,7 @@ components:
       properties:
         title:
           type: string
+          maxLength: 300
         artist_id:
           type: [integer, "null"]
         date:
@@ -933,12 +951,14 @@ components:
         museum:
           type: string
           description: Free text; where the user saw the artwork.
+          maxLength: 200
         tag_ids:
           type: array
           items:
             type: integer
         notes:
           type: string
+          maxLength: 10000
 
     Artwork:
       description: One of the user's own artworks.
@@ -955,6 +975,7 @@ components:
         - tags
         - notes
         - has_photo
+        - photo_version
         - detail_photo_ids
         - is_discoverable
         - are_notes_discoverable
@@ -993,6 +1014,10 @@ components:
         has_photo:
           type: boolean
           description: True when the artwork photo exists; get it from /artworks/{artwork_id}/photo.
+        photo_version:
+          type: [string, "null"]
+          description: |
+            Null when there is no artwork photo. Otherwise a short text that changes every time the photo is uploaded or replaced. Send it as `?v=` to /artworks/{artwork_id}/photo so the browser may keep an unchanged photo.
         detail_photo_ids:
           type: array
           description: Get each from /artworks/{artwork_id}/detail-photos/{photo_id}.
