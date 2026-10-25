@@ -736,6 +736,7 @@ components:
               name:
                 type: string
                 minLength: 1
+                maxLength: 200
     PhotoUpload:
       required: true
       content:
@@ -780,7 +781,7 @@ components:
           schema:
             $ref: "#/components/schemas/Error"
     EntityExisting:
-      description: An entry with this name already exists (ignoring capital letters); it is returned instead.
+      description: An entry with this name already exists (ignoring capital letters and extra spaces); it is returned instead.
       content:
         application/json:
           schema:
