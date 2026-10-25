@@ -222,6 +222,21 @@ docs/database-schema.md
 product-spec.md
 ```
 
+Registration, login and logout (backlog task 3, GitHub issue #3):
+
+- The project owner groomed the task and approved its acceptance criteria, including the `openapi.yaml` changes (a `422` on `/auth/login`, the cookie renewed on every logged-in response), sessions kept in a database table, and `argon2-cffi` for password hashing.
+- Claude made the approved `openapi.yaml` changes, added the `Session` section to `docs/database-schema.md`, and wrote the `sessions` migration, the four `/api/auth` endpoints, one login check that later endpoints reuse, and one handler that answers every request validation error in the `Error` shape.
+- Claude wrote tests for every acceptance criterion: register, login, logout and `/auth/me`; the cookie's flags and 30 days; renewal and expiry (by setting `expires_at` directly); two devices; email and password rules; password hashes; and the `sessions` table and migration.
+- Claude ran the full test suite against the local test database. The first run found that the new migration test read the `sessions` table before the migration had created it; Claude fixed the test, and the suite then passed with 180 tests.
+
+Recorded in:
+
+```text
+backend/
+openapi.yaml
+docs/database-schema.md
+```
+
 ---
 
 # AI Contributions
