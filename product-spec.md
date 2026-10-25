@@ -505,7 +505,7 @@ Hyphens
 
 Autocomplete prioritizes popular tags.
 
-Tags used on fewer than 2 artworks are hidden from suggestions.
+Tags used by fewer than 2 different users are hidden from suggestions. A tag's popularity is the number of different users who have it on at least one of their artworks, private artworks included.
 
 The tag remains valid even when hidden.
 
