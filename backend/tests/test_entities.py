@@ -3,11 +3,12 @@
 import threading
 
 import pytest
+from fastapi import HTTPException
 from fastapi.testclient import TestClient
 from sqlalchemy import text
 from test_auth import NOT_LOGGED_IN, NOT_LOGGED_IN_CASES, THIRTY_DAYS, cookie, device, register, token_of
 
-from main import app, get_connection
+from main import app, cleaned, get_connection, refuse_characters_not_allowed
 
 KINDS = ["artists", "movements", "subjects"]
 SEEDED_MOVEMENTS = 16
@@ -484,3 +485,62 @@ def test_entries_cannot_be_edited_or_deleted(user, conn, kind, method):
         response = user.request(method, path, json={"name": "Changed"})
         assert response.status_code in (404, 405)
     assert rows(conn, kind) == before
+
+
+# Characters that are not allowed (decided by the project owner on 2026-10-25)
+
+NOT_ALLOWED = {"detail": "Name contains characters that are not allowed."}
+
+
+@pytest.mark.parametrize("content", ['{"name": "a\\ud800b"}', '{"name": "\\udfff"}', '{"name": "Vermeer\\udbff"}'])
+def test_name_with_a_lone_surrogate_is_refused(user, conn, kind, content):
+    before = rows(conn, kind)
+
+    response = user.post(f"/api/{kind}", content=content, headers={"Content-Type": "application/json"})
+
+    assert response.status_code == 422
+    assert response.json() == NOT_ALLOWED
+    assert rows(conn, kind) == before
+
+
+@pytest.mark.parametrize("q", ["%00", "Ca%00ravaggio", "%07", "a%07b", "%7F", "%C2%9B"])
+def test_search_text_with_a_control_character_is_refused(user, kind, q):
+    response = user.get(f"/api/{kind}?q={q}")
+
+    assert response.status_code == 422
+    assert response.json() == NOT_ALLOWED
+
+
+def test_search_text_with_a_lone_surrogate_is_refused_by_the_shared_check():
+    # Search runs `q` through these two functions; a URL itself cannot carry a lone surrogate (see below).
+    with pytest.raises(HTTPException) as refused:
+        refuse_characters_not_allowed(cleaned("a\ud800b"))
+
+    assert refused.value.status_code == 422
+    assert refused.value.detail == NOT_ALLOWED["detail"]
+
+
+def test_search_text_with_the_bytes_of_a_lone_surrogate_is_not_a_server_error(user, kind):
+    # A URL carries UTF-8, which cannot hold a lone surrogate: such bytes arrive as replacement characters,
+    # which are allowed, so the search finds nothing.
+    response = user.get(f"/api/{kind}?q=a%ED%A0%80b")
+
+    assert response.status_code == 200
+    assert response.json() == EMPTY_PAGE
+
+
+@pytest.mark.parametrize("space", ["\x0b", "\x0c", "\x1c", "\x1d", "\x1e", "\x1f", "\x85"])
+def test_rare_whitespace_control_characters_count_as_spaces(user, kind, space):
+    response = create(user, kind, f"{space}Rembrandt{space}van{space}{space}Rijn{space}")
+
+    assert response.status_code == 201
+    assert response.json()["name"] == "Rembrandt van Rijn"
+    assert names(search(user, kind, q=f"van{space}Rijn")) == ["Rembrandt van Rijn"]
+
+
+def test_rare_whitespace_in_a_name_and_in_search_counts_as_spaces(user, kind):
+    response = create(user, kind, "Rembrandt\x0bvan\x85Rijn")
+
+    assert response.status_code == 201
+    assert response.json()["name"] == "Rembrandt van Rijn"
+    assert names(user.get(f"/api/{kind}?q=van%0BRijn")) == ["Rembrandt van Rijn"]

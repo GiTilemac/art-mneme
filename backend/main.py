@@ -185,13 +185,18 @@ def cleaned(name: str) -> str:
     return " ".join(unicodedata.normalize("NFC", name).split())
 
 
+def refuse_characters_not_allowed(name: str) -> None:
+    """422 for a control character or a lone surrogate (which the database cannot store)."""
+    if any(unicodedata.category(character) in ("Cc", "Cs") for character in name):
+        raise HTTPException(status_code=422, detail="Name contains characters that are not allowed.")
+
+
 def checked_name(name: str) -> str:
     """The cleaned name, or 422 when it breaks a rule."""
     name = cleaned(name)
     if not name:
         raise HTTPException(status_code=422, detail="Name cannot be empty.")
-    if any(unicodedata.category(character) == "Cc" for character in name):
-        raise HTTPException(status_code=422, detail="Name contains characters that are not allowed.")
+    refuse_characters_not_allowed(name)
     if len(name) > NAME_MAX_LENGTH:
         raise HTTPException(status_code=422, detail=f"Name must be at most {NAME_MAX_LENGTH} characters.")
     return name
@@ -207,8 +212,10 @@ def add_entity_endpoints(table: str) -> None:
         user: dict = Depends(current_user),
         connection: Connection = Depends(get_connection),
     ):
+        q = cleaned(q)
+        refuse_characters_not_allowed(q)
         # `%`, `_` and `\` are matched as themselves.
-        pattern = "%" + cleaned(q).replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
         total = connection.execute(
             text(f"SELECT count(*) FROM {table} WHERE lower(name) LIKE lower(:pattern)"), {"pattern": pattern}
         ).scalar()
