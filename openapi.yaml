@@ -259,7 +259,7 @@ paths:
       tags: [Tags]
       summary: Suggest tags while typing
       description: |
-        Most used tags first. Tags used on fewer than 2 artworks are left out.
+        Most used tags first. Tags used by fewer than 2 different users are left out.
         Returns at most 10 tags.
       parameters:
         - $ref: "#/components/parameters/NameQuery"
