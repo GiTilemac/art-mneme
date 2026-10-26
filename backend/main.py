@@ -704,3 +704,68 @@ def delete_artwork(artwork_id: str, user: dict = Depends(current_user), connecti
         # If storage fails, the database change is undone and the 503 handler answers.
         for path in paths:
             photos.delete(path)
+
+
+PHOTO_NOT_FOUND = "Photo not found."
+CHOOSE_A_PHOTO = "Choose a photo to upload."
+
+
+def replace_photo(connection: Connection, artwork, photo: bytes) -> dict:
+    """Stores the new photo, then saves the row (a WATCHLIST artwork becomes COLLECTION), then deletes the old file."""
+    try:
+        photos.check(photo)
+    except photos.InvalidPhoto as error:
+        raise HTTPException(status_code=422, detail=str(error)) from None
+    path = photos.save(photo)
+    try:
+        with connection.begin_nested():
+            connection.execute(
+                text(
+                    "UPDATE artworks SET artwork_photo_path = :path, collection_state = 'COLLECTION', "
+                    "updated_at = clock_timestamp() WHERE id = :id"
+                ),
+                {"path": path, "id": artwork.id},
+            )
+            response = artwork_response(connection, artwork.id)
+    except Exception:
+        photos.delete(path)
+        raise
+    if artwork.artwork_photo_path is not None:
+        try:
+            photos.delete(artwork.artwork_photo_path)
+        except photos.StorageUnavailable:
+            pass  # The old file stays behind; there is no clean-up in v1.
+    return response
+
+
+@app.put("/api/artworks/{artwork_id}/photo")
+async def upload_photo(
+    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+):
+    artwork = own_artwork(connection, user, artwork_id)
+    if not request.headers.get("content-type", "").startswith("multipart/form-data"):
+        raise HTTPException(status_code=422, detail=CHOOSE_A_PHOTO)
+    try:
+        form = await request.form()
+    except StarletteHTTPException:
+        raise HTTPException(status_code=422, detail=CHOOSE_A_PHOTO) from None
+    photo = form.get("photo")
+    if not isinstance(photo, UploadFile):
+        raise HTTPException(status_code=422, detail=CHOOSE_A_PHOTO)
+    return await run_in_threadpool(replace_photo, connection, artwork, await photo.read())
+
+
+@app.get("/api/artworks/{artwork_id}/photo")
+def get_photo(
+    artwork_id: str, v: str | None = None, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+):
+    path = own_artwork(connection, user, artwork_id).artwork_photo_path
+    if path is None:
+        raise HTTPException(status_code=404, detail=PHOTO_NOT_FOUND)
+    try:
+        # Read in full first, so a storage failure gives a clean 503 instead of a half-sent photo.
+        data = b"".join(photos.read(path))
+    except photos.PhotoNotFound:
+        raise HTTPException(status_code=404, detail=PHOTO_NOT_FOUND) from None
+    cache = "private, max-age=31536000, immutable" if v == photo_version(path) else "private, no-store"
+    return Response(data, media_type="image/jpeg", headers={"Cache-Control": cache})
