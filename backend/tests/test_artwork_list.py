@@ -160,12 +160,6 @@ def test_list_item_equals_the_single_artwork_response(user, conn):
     assert watchlist[0]["photo_version"] is None and len(collection[0]["photo_version"]) == 16
 
 
-def test_search_and_filter_parameters_are_ignored_for_now(user, conn):
-    created = insert(conn, me(user), 2)
-
-    assert sorted(ids(listed(user, q="nothing", artist_id="1", museum="x"))) == created
-
-
 def test_the_list_works_while_photo_storage_is_down(user, monkeypatch):
     post(user, {}, photo=JPEG)
 
