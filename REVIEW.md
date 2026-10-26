@@ -42,6 +42,15 @@ A short path through ArtMneme for a reviewer: where each grading criterion is sh
 1. "Deploy to prod" with the previous tag `20261026-171541-455f748` (run 40388771867): deployed and healthy in about 1 minute, and Grafana showed the old version.
 2. "Deploy to prod" without a tag (run 40389060803): back to `20261026-175010-5db5c27`, healthy.
 
+## Failsafe versions
+
+The last changes (one test command, structured logs, this guide) were made just before delivery. If something in `main` does not work, two tagged versions are known to work:
+
+- **`prod-20261026`** (`5db5c27`): the last version that CI tested and that runs on prod (image `20261026-175010-5db5c27`).
+- **`stable-before-criteria`** (`7ca0163`): the code just before those last changes, with the frontend screen tests; all tests passed locally.
+
+`git checkout prod-20261026` (or `stable-before-criteria`), then `docker compose up --build` and `make test-all` as above.
+
 ## Decisions and limits
 
 - **Environments:** prod is the AWS stack. Dev runs on the developer's computer; its telemetry goes to the same Grafana Cloud stack as `dev`. A dev environment on the server, deployed by CI, is prepared on the branch `dev-environment` but not yet released.
