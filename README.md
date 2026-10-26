@@ -344,22 +344,21 @@ The app is at the `AppUrl` that `make deploy-stack` prints (`https://<address>.s
 
 ### CI/CD
 
-`.github/workflows/ci-cd.yml` runs on every push and pull request:
+Dev runs locally (`make run` and `make frontend`, or `docker compose up --build`). The AWS stack `artmneme` is prod.
+
+`.github/workflows/ci-cd.yml` ("CI") runs on every push and pull request, and deploys nothing:
 
 1. The backend tests and the frontend tests, in parallel.
 2. Then `make integration` and `make e2e` against the `docker-compose.yaml` stack.
-3. Then, only on a push to `main`, the deploy: `deploy/deploy.sh` (the same as `make deploy`), followed by a check that `/api/health` on the app address answers `{"status":"ok"}`.
 
-The deploy job signs in to AWS with GitHub OIDC: no AWS keys are stored in GitHub. Only a workflow run for a push to `main` of this repository may use the AWS role; pull requests and other branches cannot.
+`.github/workflows/deploy-prod.yml` ("Deploy to prod") runs only when you start it: GitHub > Actions > Deploy to prod > Run workflow, on `main`. It deploys the newest commit of `main`, or a commit you enter, but only if "CI" passed for that commit. Then it checks that `/api/health` on prod answers `{"status":"ok"}`.
+
+The deploy signs in to AWS with GitHub OIDC: no AWS keys are stored in GitHub. Only workflow runs on `main` of this repository may use the AWS role; pull requests and other branches cannot. GitHub environments (with a manual approval step) are not used: for private repositories they need a paid GitHub plan.
 
 One-time steps:
 
 1. Create the role: `make deploy-ci-role`. It prints `DeployRoleArn`.
 2. In GitHub, open Settings > Secrets and variables > Actions > Variables, and add the repository variable `AWS_DEPLOY_ROLE_ARN_PROD` with that value.
-
-For a dev environment later: deploy a second app stack, create a second role stack with `Branch=dev`, `AppStackName=<dev stack>` and `CreateOidcProvider=false` (if it is in the same AWS account), add the repository variable `AWS_DEPLOY_ROLE_ARN_DEV`, and add a deploy job for pushes to `dev` to the workflow.
-
-GitHub environments (with optional manual approval) are not used: for private repositories they need a paid GitHub plan.
 
 ### Deploy a new version
 
@@ -368,7 +367,7 @@ Run these steps from the repository root, in a terminal where `aws sts get-calle
 1. Run the tests: `make test`, `make integration` and `make e2e`. All must pass.
 2. Commit the changes. The image is named after the commit (for example `7ab31e2`); uncommitted changes give a name that ends in `-dirty`, so you cannot tell later what runs.
 3. If the version changes the database (a new file in `backend/migrations/versions/`), take a snapshot of the server disk first. The app updates the database schema when it starts, and a rollback does not undo that.
-4. Run `make deploy`. It builds the image, uploads it, copies `deploy/docker-compose.prod.yaml` and `deploy/Caddyfile` to the server and restarts the changed containers. The app is unavailable for a few seconds. At the end it prints `Deployed <commit> to <address>`.
+4. Start "Deploy to prod" in GitHub Actions (see CI/CD above), or run `make deploy` from your computer. It builds the image, uploads it, copies `deploy/docker-compose.prod.yaml` and `deploy/Caddyfile` to the server and restarts the changed containers. The app is unavailable for a few seconds. At the end it prints `Deployed <commit> to <address>`.
 5. Check the result: `curl https://<address>/api/health` gives `{"status":"ok"}`. Then sign in in a browser and open an artwork.
 6. Push the commit to GitHub, so the repository shows what runs.
 
