@@ -269,6 +269,23 @@ aws ssm put-parameter --type SecureString --name /artmneme/otel-exporter-otlp-he
 
 5. In Grafana Cloud, import `observability/grafana/dashboards/artmneme-app.json` (Dashboards > New > Import) and choose the Grafana Cloud Prometheus data source in its "Data source" filter.
 
+### Alert and on-call engineer
+
+The alert rule "Artwork creations are failing" (`observability/grafana/provisioning/alerting/artwork-creation-failures.json`) counts server-side artwork creation failures (`storage`, `error`; not wrong input) per environment and version. It names service, environment, version, owner and the filtered dashboard, plus first steps. The local Grafana loads it at start.
+
+To put the dashboard and the alert into Grafana Cloud, create a service account (Administration > Users and access > Service accounts, role Admin) with a token, store the Grafana address and the token in SSM, then run `make grafana-cloud` (again after every change to those files):
+
+```bash
+aws ssm put-parameter --profile artmneme-deploy --cli-input-json '{"Name": "/artmneme/grafana-url", "Type": "SecureString", "Value": "https://<stack>.grafana.net"}'
+read -r -s -p "Token: " token; echo
+aws ssm put-parameter --profile artmneme-deploy --type SecureString --name /artmneme/grafana-token --value "$token"; unset token
+make grafana-cloud
+```
+
+Grafana Cloud sends firing alerts to its default contact point: the email address of your Grafana Cloud account.
+
+`make on-call` starts the local on-call engineer (`on-call-engineer/on_call.py`): every minute it asks Grafana Cloud for firing alerts (`make on-call ALERTS=local` asks the local Grafana) and starts Claude Code headless for each new one, with `docs/team/on-call-engineer.md` as its instructions. It needs Claude Code installed and signed in. A fix appears as a local branch `oncall/<time>`: review it with `git log -p main..oncall/<time>`, then merge and push it as usual. Session logs are in `on-call-engineer/logs/`. Ctrl+C stops it.
+
 ### Local observability stack
 
 For working offline, the same stack can also run on your computer:

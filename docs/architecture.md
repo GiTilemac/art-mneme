@@ -211,7 +211,7 @@ CI/CD: GitHub Actions runs all tests on every push (`.github/workflows/ci-cd.yml
 
 Environments (decided by the project owner on 2026-10-26): dev runs locally (`make run` and `make frontend`, or `docker compose up --build`); the AWS stack `artmneme` is prod. A separate dev stack on AWS is postponed.
 
-Observability (decided by the project owner on 2026-10-26): dev and prod send OpenTelemetry data to one Grafana Cloud stack (free tier), separate from the application stack. `observability/` remains as a local copy of such a stack for offline work. The course's "deploy every push to dev, promote to prod by hand" is adapted: every push is tested, and promoting to prod is the manual "Deploy to prod" workflow.
+Observability (decided by the project owner on 2026-10-26): dev and prod send OpenTelemetry data to one Grafana Cloud stack (free tier), separate from the application stack. `observability/` remains as a local copy of such a stack for offline work. Alerts: the rule in `observability/grafana/provisioning/alerting/`, uploaded to Grafana Cloud with `make grafana-cloud`. On call: `make on-call` polls the alerts and hands each new one to Claude Code headless, which may commit a fix on a branch for review (`docs/observability.md` > Responder Agent). The course's "deploy every push to dev, promote to prod by hand" is adapted: every push is tested, and promoting to prod is the manual "Deploy to prod" workflow.
 
 ---
 

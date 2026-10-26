@@ -377,13 +377,7 @@ to reduce diagnosis time.
 
 Assist investigation after alerts fire.
 
-The responder agent is:
-
-```text
-Read-only
-```
-
-and advisory.
+The responder agent investigates and may propose a fix (decided by the project owner on 2026-10-26): it may commit the smallest correction, with the backend tests passing, on its own branch for human review. Its instructions are `docs/team/on-call-engineer.md`.
 
 ---
 
@@ -413,6 +407,10 @@ Identify likely root causes
 Highlight suspicious patterns
 
 Recommend remediation steps
+
+Reproduce the failure
+
+Commit a fix on its own oncall/<time> branch
 ```
 
 ---
@@ -422,6 +420,8 @@ Recommend remediation steps
 The responder agent must not:
 
 ```text
+Push or merge code
+
 Deploy code
 
 Rollback deployments
@@ -431,7 +431,13 @@ Modify infrastructure
 Change production data
 ```
 
-Human approval is always required.
+Human approval is always required: a person reviews the branch, merges it, and deploys with "Deploy to prod".
+
+## Implementation
+
+Local (decided by the project owner on 2026-10-26, the least costly version): `make on-call` runs `on-call-engineer/on_call.py` on the developer's computer. Every minute it asks Grafana for firing alerts (Grafana Cloud by default; `ALERTS=local` for the local Grafana). For each new alert it creates a separate git worktree on a branch `oncall/<time>`, starting at the commit of the alerting version, and runs Claude Code headless (`claude -p`) there with `docs/team/on-call-engineer.md` and the alert details. The agent may read, edit, run tests through `uv run`, use `curl` and commit locally; it cannot push. The session log is saved in `on-call-engineer/logs/` (not in git). It uses the developer's Claude Code login, so it adds no API cost; it works only while the script runs.
+
+A cloud version (alert to SNS, a Lambda that starts a container job, the agent running there, logs kept and the compute ended) can reuse the same role file later.
 
 ---
 

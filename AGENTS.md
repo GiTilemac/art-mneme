@@ -9,6 +9,7 @@ Instructions for AI coding agents working on ArtMneme. `.claude/CLAUDE.md` impor
 - `docs/process.md` - how work is organized
 - Before writing tests, read `docs/testing-guidelines.md`
 - For anything touching the UI, read `docs/design-system.md`
+- `docs/team/on-call-engineer.md` - instructions for the on-call agent that `make on-call` starts for each alert
 - `docs/external-services.md` - every online service and account (AWS, ...): resources, secrets, costs. Update it when a service is added or changed.
 
 ## Sources of Truth

@@ -51,6 +51,17 @@ When a new service is added (for example Grafana Cloud for observability), add a
 | Purpose | The observability stack for dev and prod: metrics, traces and logs from the backend, and the dashboard "ArtMneme application metrics". Separate from the application stack. |
 | Decided | 2026-10-26 by the project owner (instead of an own observability server on AWS). |
 | Account | The project owner's Grafana Cloud account, free tier. Grafana is opened at the stack's `grafana.net` address with that account. |
-| Secrets | The OTLP endpoint and the token header: in SSM as `/artmneme/otel-exporter-otlp-endpoint` and `/artmneme/otel-exporter-otlp-headers` (prod), and as the environment variables `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` on the developer's computer (dev). Never in the repository. |
+| Secrets | For the dashboard and alert upload and the on-call engineer: the Grafana address and a service-account token (role Admin), in SSM as `/artmneme/grafana-url` and `/artmneme/grafana-token`. For sending data: the OTLP endpoint and the token header: in SSM as `/artmneme/otel-exporter-otlp-endpoint` and `/artmneme/otel-exporter-otlp-headers` (prod), and as the environment variables `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` on the developer's computer (dev). Never in the repository. |
 | Cost and limits | Free tier: limited metrics series, logs and traces per month, short retention. ArtMneme's volume is far below it. |
-| Set up | `README.md` > Telemetry > Grafana Cloud. |
+| Alerting | The rule "Artwork creations are failing" goes to the default contact point: the account's email address. |
+| Set up | `README.md` > Telemetry > Grafana Cloud, and > Alert and on-call engineer. |
+
+---
+
+## Claude Code (on-call engineer)
+
+| Field | Value |
+|---|---|
+| Purpose | The headless agent that `make on-call` starts for each new alert (`docs/team/on-call-engineer.md`). |
+| Account | The developer's own Claude Code login on their computer. No API key is stored. |
+| Cost and limits | Within the developer's Claude Code plan; each alert starts one session. |

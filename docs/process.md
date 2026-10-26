@@ -8,3 +8,4 @@ Roles
 - Dev - implements one groomed task, follows docs/team/dev.md
 - QA - checks the result against the acceptance criteria, follows docs/team/qa-engineer.md
 - Orchestrator - launches the PM, the dev and QA as subagents,  follows docs/team/orchestrator.md
+- On-call engineer - investigates a firing alert and may commit a fix on its own branch for review, follows docs/team/on-call-engineer.md (started by `make on-call`)

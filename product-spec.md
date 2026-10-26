@@ -1217,7 +1217,7 @@ Root Cause Hypothesis
 Recommended Remediation
 ```
 
-Responder agents are advisory only.
+Responder agents investigate, and may commit a fix on a separate branch for human review (decided by the project owner on 2026-10-26). They never push, merge or deploy.
 
 Automatic production changes are out of scope.
 
