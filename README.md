@@ -319,6 +319,10 @@ Then open http://localhost:8000. The database and the photos are kept in Docker 
 
 `make integration` starts `docker-compose.yaml` with empty volumes on port 8092 and runs the tests in `backend/integration/` against it over HTTP. Afterwards it removes the containers and their volumes. It needs Docker; `make test` does not run these tests.
 
+## End-to-end tests
+
+`make e2e` does the same on port 8093, but drives a real browser (Chromium, through pytest-playwright) against the running stack: it registers a user, adds two artworks through the forms and explores relationships, then checks that everything is still there after a reload and in a new session. The tests are in `e2e/`. It needs Docker and Chromium (`cd backend && uv run playwright install chromium`).
+
 ---
 
 # Technology Goals
