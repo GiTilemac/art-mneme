@@ -246,10 +246,13 @@ def test_unreachable_storage_gives_503(monkeypatch):
     def use_storage():
         raise photos.StorageUnavailable
 
+    # First in the list, so the frontend's catch-all route cannot take the address.
+    route = app.router.routes.pop()
+    app.router.routes.insert(0, route)
     try:
         answer = TestClient(app).get("/api/test-photo")
     finally:
-        app.router.routes.pop()
+        app.router.routes.remove(route)
     assert answer.status_code == 503
     assert answer.json() == {"detail": "Photos are unavailable right now. Please try again later."}
 

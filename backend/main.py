@@ -1,9 +1,11 @@
 import hashlib
 import json
+import os
 import re
 import secrets
 import unicodedata
 from datetime import UTC, datetime
+from pathlib import Path
 
 from argon2 import PasswordHasher
 from argon2.exceptions import VerifyMismatchError
@@ -11,7 +13,7 @@ from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response
 from fastapi.concurrency import run_in_threadpool
 from fastapi.exception_handlers import http_exception_handler
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 from pydantic import BaseModel, ConfigDict, ValidationError
 from sqlalchemy import Connection, text
 from starlette.datastructures import UploadFile
@@ -926,3 +928,17 @@ def related_artworks(
             ).scalars().all()
             result[source] = artwork_responses(connection, list(ids)) if ids else []
     return result
+
+
+# Last route, so every API route above wins. The built frontend is static files with one HTML page;
+# any other address gets that page and the app finds its screen in the browser.
+@app.get("/{path:path}", include_in_schema=False)
+def frontend(path: str):
+    folder = os.environ.get("FRONTEND_DIR")
+    if not folder or path == "api" or path.startswith("api/"):
+        raise HTTPException(status_code=404, detail="Not Found")
+    root = Path(folder).resolve()
+    file = (root / path).resolve()
+    if path and file.is_file() and file.is_relative_to(root):
+        return FileResponse(file)
+    return FileResponse(root / "_shell.html")
