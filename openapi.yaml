@@ -27,7 +27,6 @@ tags:
   - name: Photos
   - name: Exploration
   - name: Search
-  - name: Discoverability
   - name: Artists
   - name: Movements
   - name: Subjects
@@ -608,55 +607,6 @@ paths:
         "503":
           $ref: "#/components/responses/StorageUnavailable"
 
-  /artworks/{artwork_id}/discoverable:
-    parameters:
-      - $ref: "#/components/parameters/ArtworkId"
-    put:
-      tags: [Discoverability]
-      summary: Make the artwork discoverable, or private again
-      description: |
-        Turning it on is refused unless title, artist and date are all set.
-        A photo is not required. Photos are never shown to other users.
-      requestBody:
-        $ref: "#/components/requestBodies/Switch"
-      responses:
-        "200":
-          description: The updated artwork.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Artwork"
-        "401":
-          $ref: "#/components/responses/NotLoggedIn"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          description: Title, artist or date is missing.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Error"
-
-  /artworks/{artwork_id}/notes-discoverable:
-    parameters:
-      - $ref: "#/components/parameters/ArtworkId"
-    put:
-      tags: [Discoverability]
-      summary: Make the notes discoverable, or private again
-      requestBody:
-        $ref: "#/components/requestBodies/Switch"
-      responses:
-        "200":
-          description: The updated artwork.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Artwork"
-        "401":
-          $ref: "#/components/responses/NotLoggedIn"
-        "404":
-          $ref: "#/components/responses/NotFound"
-
   /artworks/{artwork_id}/related:
     parameters:
       - $ref: "#/components/parameters/ArtworkId"
@@ -666,9 +616,7 @@ paths:
       description: |
         Artworks with the same artist, subject, movement or museum as this one,
         or carrying all of the chosen tags.
-        Collection results by default; watchlist and community only when asked.
-        Community results come only from other users' discoverable artworks and
-        never contain photos or private notes.
+        Only the user's own artworks: collection results by default, watchlist only when asked.
       parameters:
         - name: by
           in: query
@@ -691,11 +639,6 @@ paths:
             type: boolean
             default: true
         - name: include_watchlist
-          in: query
-          schema:
-            type: boolean
-            default: false
-        - name: include_community
           in: query
           schema:
             type: boolean
@@ -776,17 +719,6 @@ components:
           encoding:
             photo:
               contentType: image/jpeg
-    Switch:
-      required: true
-      content:
-        application/json:
-          schema:
-            type: object
-            required: [value]
-            properties:
-              value:
-                type: boolean
-
   responses:
     NotLoggedIn:
       description: Not logged in, or the session has expired.
@@ -1026,9 +958,11 @@ components:
         is_discoverable:
           type: boolean
           default: false
+          description: Always false in v1. Discoverability comes in a later version.
         are_notes_discoverable:
           type: boolean
           default: false
+          description: Always false in v1. Discoverability comes in a later version.
         created_at:
           type: string
           format: date-time
@@ -1049,44 +983,9 @@ components:
           type: integer
           const: 50
 
-    CommunityArtwork:
-      description: What other users may see. Never contains photos; notes only when shared.
-      type: object
-      required: [id, title, artist, date, subject, movement, museum, tags, notes]
-      properties:
-        id:
-          type: integer
-        title:
-          type: string
-        artist:
-          oneOf:
-            - $ref: "#/components/schemas/Entity"
-            - type: "null"
-        date:
-          oneOf:
-            - $ref: "#/components/schemas/ArtworkDate"
-            - type: "null"
-        subject:
-          oneOf:
-            - $ref: "#/components/schemas/Entity"
-            - type: "null"
-        movement:
-          oneOf:
-            - $ref: "#/components/schemas/Entity"
-            - type: "null"
-        museum:
-          type: string
-        tags:
-          type: array
-          items:
-            $ref: "#/components/schemas/Entity"
-        notes:
-          type: [string, "null"]
-          description: Null unless the owner made the notes discoverable.
-
     RelatedArtworks:
       type: object
-      required: [collection, watchlist, community]
+      required: [collection, watchlist]
       properties:
         collection:
           type: array
@@ -1098,8 +997,3 @@ components:
           description: Empty unless include_watchlist is true.
           items:
             $ref: "#/components/schemas/Artwork"
-        community:
-          type: array
-          description: Empty unless include_community is true.
-          items:
-            $ref: "#/components/schemas/CommunityArtwork"

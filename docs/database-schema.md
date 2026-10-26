@@ -658,6 +658,8 @@ Artwork
 
 # Discoverability Rules
 
+Not part of v1. In v1 `is_discoverable` and `are_notes_discoverable` always stay false; the columns are kept for a later version that adds community.
+
 Default:
 
 ```text
@@ -685,6 +687,8 @@ Artwork photo is not required.
 ---
 
 # Community Visibility
+
+Not part of v1 (see Discoverability Rules).
 
 Visible:
 

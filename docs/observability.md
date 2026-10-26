@@ -159,6 +159,8 @@ Measure engagement with the application's core differentiator.
 
 ## Discoverable Artworks
 
+Not part of v1: added with community in a later version.
+
 Definition:
 
 ```text
@@ -275,9 +277,9 @@ Update Artwork
 Convert Watchlist → Collection
 
 Explore Relationships
-
-Enable Discoverability
 ```
+
+Enable Discoverability is added with community in a later version.
 
 Each workflow should be traceable end-to-end.
 

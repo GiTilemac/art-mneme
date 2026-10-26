@@ -95,6 +95,8 @@ Shared Tags
 
 ## Metadata-First Community Layer
 
+Not part of v1: community, including discoverability, comes in a later version. In v1 artworks stay private and exploration shows only the user's own artworks.
+
 Community discovery is based on metadata.
 
 Public image sharing is intentionally excluded from v1.
@@ -403,6 +405,8 @@ Tags
 
 ## Discoverability
 
+Not part of v1.
+
 Responsible for enforcing:
 
 ```text
@@ -533,6 +537,8 @@ These entities are shared, reusable and immutable in v1.
 
 # Community Discovery
 
+Not part of v1.
+
 Community participation occurs through discoverable metadata.
 
 Visible:
@@ -599,6 +605,8 @@ Display Results
 ---
 
 ## Enable Discoverability
+
+Not part of v1.
 
 ```text
 Artwork

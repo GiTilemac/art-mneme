@@ -296,6 +296,21 @@ openapi.yaml
 product-spec.md
 ```
 
+Community postponed to a later version (backlog rework, 2026-10-26):
+
+- To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
+- Claude removed the discoverability endpoints and the community parts of the exploration endpoint from `openapi.yaml`, marked the community sections of `product-spec.md`, `docs/database-schema.md`, `docs/architecture.md`, `docs/observability.md` and `README.md` as not part of v1, and moved task 14 and community exploration to a Later version section in `docs/tasks.md`.
+- Claude updated GitHub issues #18 (postponed), #19 (own artworks only) and #11 (hide the controls).
+
+Recorded in:
+
+```text
+openapi.yaml
+product-spec.md
+docs/
+README.md
+```
+
 ---
 
 # AI Contributions

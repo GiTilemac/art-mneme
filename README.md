@@ -2,7 +2,7 @@
 
 ArtMneme is a personal artwork collection and relationship exploration platform.
 
-Users collect artworks they have encountered, enrich them with metadata, record observations, and explore relationships between artworks across their collection, watchlist, and discoverable community metadata.
+Users collect artworks they have encountered, enrich them with metadata, record observations, and explore relationships between artworks across their collection and watchlist. Community discovery comes in a later version.
 
 ---
 
@@ -92,6 +92,8 @@ battle + horse + armor
 ---
 
 ## Community Discovery
+
+Not part of v1: it comes in a later version.
 
 Community discovery is metadata-driven.
 
@@ -357,8 +359,6 @@ Active Users
 Artworks Created
 
 Relationship Explorations
-
-Discoverable Artworks
 
 Watchlist Conversions
 ```

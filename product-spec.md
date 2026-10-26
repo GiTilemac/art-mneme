@@ -705,6 +705,8 @@ A COLLECTION artwork cannot be moved back to WATCHLIST. The user creates a new w
 
 # Discoverability
 
+Not part of v1. In v1 every artwork and its notes stay private, and exploration shows only the user's own artworks. A later version adds community: this section describes it.
+
 Default:
 
 ```text
@@ -737,6 +739,8 @@ Artwork photos are not required.
 
 # Notes Discoverability
 
+Not part of v1. In v1 every artwork and its notes stay private, and exploration shows only the user's own artworks. A later version adds community: this section describes it.
+
 Notes are controlled independently.
 
 Options:
@@ -756,6 +760,8 @@ Private Notes
 ---
 
 # Community Visibility
+
+Not part of v1. In v1 every artwork and its notes stay private, and exploration shows only the user's own artworks. A later version adds community: this section describes it.
 
 Visible:
 
@@ -790,6 +796,8 @@ Private Notes
 ---
 
 # Community Discovery
+
+Not part of v1. In v1 every artwork and its notes stay private, and exploration shows only the user's own artworks. A later version adds community: this section describes it.
 
 Community discovery is relationship-driven.
 
@@ -883,9 +891,9 @@ Optional:
 
 ```text
 Watchlist
-
-Community
 ```
+
+Community results come in a later version.
 
 ---
 
@@ -1119,11 +1127,13 @@ Watchlist results appear only when enabled.
 
 ---
 
-Community results appear only when enabled.
+Community results are not part of v1.
 
 ---
 
 ## Discoverability
+
+Not part of v1.
 
 Given an artwork is private
 
@@ -1154,10 +1164,10 @@ Artworks Created
 
 Relationship Explorations
 
-Discoverable Artworks
-
 Watchlist Conversions
 ```
+
+Discoverable Artworks is added with community in a later version.
 
 Primary alert:
 

@@ -59,14 +59,24 @@ Description: Implement the endpoint in `openapi.yaml` that lists the logged-in u
 Goal: A user can search and filter their own artworks.
 Description: Add search over Title, Artist, Subject, Tags and Museum, and filters for Artist, Movement, Museum, Tags and Date Range, to the artwork list endpoint as `openapi.yaml` defines them and `product-spec.md` lists. Notes are never searched. Search covers only the user's own artworks, because the spec excludes global community search.
 
-## 14. Discoverability API
-Goal: A user can make an artwork discoverable, and separately make its notes discoverable.
-Description: Implement the endpoints in `openapi.yaml` to switch `is_discoverable` and `are_notes_discoverable` on and off. Making an artwork discoverable is refused unless its title, artist and date are all set; a photo is not required. Both settings start as private.
-
 ## 15. Relationship exploration API (artist, subject, movement, museum)
 Goal: From one artwork, a user can list other artworks with the same artist, subject, movement or museum.
-Description: Implement the exploration endpoint from `openapi.yaml`, using the mapping in `docs/database-schema.md` under Relationship Exploration Mapping. Results come from the user's collection by default; watchlist and community results are included only when asked for. Community results come only from discoverable artworks and show only the fields listed under Community Visibility, never photos or private notes.
+Description: Implement the exploration endpoint from `openapi.yaml`, using the mapping in `docs/database-schema.md` under Relationship Exploration Mapping. Only the user's own artworks are searched: results come from the collection by default; watchlist results are included only when asked for. Community results come in a later version.
 
 ## 16. Shared tags exploration API
 Goal: A user can find artworks that carry all of a chosen set of tags.
-Description: Extend relationship exploration with Shared Tags, where results must match every selected tag (battle + horse + armor). It uses the same sources (collection by default; watchlist and community on request) and the same community privacy rules as the other exploration modes.
+Description: Extend relationship exploration with Shared Tags, where results must match every selected tag (battle + horse + armor). It uses the same sources as the other exploration modes (collection by default; watchlist on request).
+
+---
+
+# Later version
+
+Not part of v1. Postponed by the project owner on 2026-10-26: community, including discoverability. In v1 every artwork and its notes stay private.
+
+## 14. Discoverability API
+Goal: A user can make an artwork discoverable, and separately make its notes discoverable.
+Description: Implement the endpoints for switching `is_discoverable` and `are_notes_discoverable` on and off (removed from `openapi.yaml` for v1; added back first, with the project owner's approval). Making an artwork discoverable is refused unless its title, artist and date are all set; a photo is not required. Both settings start as private.
+
+## Community exploration
+Goal: Relationship exploration (tasks 15 and 16) can also show other users' discoverable artworks.
+Description: Add a community source to the exploration endpoint (added back to `openapi.yaml` first, with the project owner's approval). Community results come only from discoverable artworks and show only the fields listed under Community Visibility in `product-spec.md`, never photos or private notes.
