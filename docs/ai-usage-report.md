@@ -422,6 +422,7 @@ Go live and full alert drill on prod (2026-10-26):
 
 - Claude scheduled the prod deploy after the owner's push and checked that prod sends telemetry to Grafana Cloud with the labels `prod` and the version. Claude uploaded the dashboard and the alert rule with `make grafana-cloud` and found two setup problems: the upload needs a service account with the Admin role, and the stack's default notification policy sent alerts to a contact point without a channel. The project owner fixed both in Grafana.
 - Drill: `make fault-on`, `make trigger-alert` (HTTP 500 twice), the alert fired for `prod` and the email arrived; `make on-call` started the agent, which named the fault switch as the likely cause, ran the tests (all passed) and committed nothing. It could not confirm the switch on prod, so on the owner's request Claude added the read-only `deploy/prod-status.sh` and allowed the agent to run it.
+- Rollback drill: Claude checked that no database migration changed since the previous image, ran "Deploy to prod" with the previous tag `20261026-171541-455f748` (deployed and healthy in about 1 minute; Grafana Cloud showed the old version), then "Deploy to prod" without a tag to return to `20261026-175010-5db5c27` (healthy).
 
 Community postponed to a later version (backlog rework, 2026-10-26):
 
