@@ -251,6 +251,16 @@ The backend sends OpenTelemetry traces and HTTP metrics for every request (`back
 
 `service.name` is always `artmneme-backend`.
 
+### Local observability stack
+
+`observability/` is a separate Docker Compose project: an OpenTelemetry Collector, Prometheus (metrics), Loki (logs), Tempo (traces) and Grafana, with the three data sources set up. All ports are open only on this computer.
+
+1. Run `make observability`.
+2. Start the backend with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 make run`.
+3. Open Grafana at http://localhost:3000 (no login locally). Traces are under Explore > Tempo; metrics under Explore > Prometheus, e.g. `http_server_duration_milliseconds_count`, with the labels `service_version` and `deployment_environment_name`.
+
+`make observability-down` stops it; the data stays in Docker volumes (7 days). The backend does not send logs yet, so Loki stays empty.
+
 ## Photo storage
 
 Photos are stored by `backend/photos.py`, in one of two places:

@@ -217,7 +217,9 @@ deployment.environment.name   prod (AWS) or local
 service.version               the image tag, e.g. 20261026-155049-1ae1c7e
 ```
 
-Not yet: logs through OpenTelemetry, and the business metrics (Artworks Created, Relationship Explorations, Watchlist Conversions).
+Local stack (2026-10-26): `observability/docker-compose.yaml`, a separate Compose project. The OpenTelemetry Collector receives OTLP (ports 4317, 4318) and sends traces to Tempo, metrics to Prometheus (its OTLP receiver; `service.name`, `service.version` and `deployment.environment.name` become labels) and logs to Loki. Grafana has the three data sources.
+
+Not yet: logs through OpenTelemetry, the business metrics (Artworks Created, Relationship Explorations, Watchlist Conversions), dashboards and alerts, and an observability stack for prod.
 
 ---
 

@@ -393,6 +393,10 @@ OpenTelemetry in the backend (2026-10-26):
 
 - The project owner approved three libraries (`opentelemetry-sdk`, `opentelemetry-exporter-otlp-proto-http`, `opentelemetry-instrumentation-fastapi`). Claude wrote `backend/telemetry.py` (traces and HTTP metrics for every request, with service name, environment and deployed version, sent only when `OTEL_EXPORTER_OTLP_ENDPOINT` is set), passed the image tag into the image as `APP_VERSION`, set `DEPLOYMENT_ENVIRONMENT=prod` for AWS, and added tests.
 
+Local observability stack (2026-10-26):
+
+- At the project owner's request, Claude created `observability/` as a separate Compose project (OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana with provisioned data sources) and the `make observability` commands, and checked it end to end: a local backend's traces arrived in Tempo and its metrics in Prometheus, labelled with version and environment.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.

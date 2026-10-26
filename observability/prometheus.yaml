@@ -1,0 +1,7 @@
+# Metrics arrive from the Collector through the OTLP receiver (no scraping).
+# These resource attributes become labels on every metric (docs/observability.md: environment and version).
+otlp:
+  promote_resource_attributes:
+    - service.name
+    - service.version
+    - deployment.environment.name
