@@ -3,9 +3,12 @@
 # an image only with the manual workflow "Deploy to prod" (deploy-prod.yml).
 name: CI
 
+# A push or pull request that changes only docs starts no run: docs cannot change tests or the image.
 on:
   push:
+    paths-ignore: ["docs/**", "**/*.md"]
   pull_request:
+    paths-ignore: ["docs/**", "**/*.md"]
 
 permissions:
   contents: read

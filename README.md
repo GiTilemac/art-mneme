@@ -359,7 +359,7 @@ The app is at the `AppUrl` that `make deploy-stack` prints (`https://<address>.s
 
 Dev runs locally (`make run` and `make frontend`, or `docker compose up --build`). The AWS stack `artmneme` is prod.
 
-`.github/workflows/ci-cd.yml` ("CI") runs on every push and pull request, and deploys nothing:
+`.github/workflows/ci-cd.yml` ("CI") runs on every push and pull request, except when only docs change (`docs/**` or `*.md` files), and deploys nothing:
 
 1. The backend tests and the frontend tests, in parallel.
 2. Then `make integration` and `make e2e` against the `docker-compose.yaml` stack.
