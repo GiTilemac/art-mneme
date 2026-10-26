@@ -351,6 +351,12 @@ Only the application's own failures count, such as a server error, an unavailabl
 
 User input errors, such as a missing required photo or an invalid tag, do not count.
 
+Implemented (2026-10-26) as the Grafana rule "Artwork creations are failing" (`observability/grafana/provisioning/alerting/artwork-creation-failures.json`): fires when at least one `storage` or `error` failure happened in the last 15 minutes, after the condition has held for 1 minute, separately for each environment and version. It names service, environment, version, owner (project owner), the filtered dashboard and first steps. The project owner chose this threshold over "3 failures in 10 minutes" (2026-10-26), because with little traffic a blocked user may try only once or twice.
+
+## Alert Trigger
+
+`ARTMNEME_FAULT=artwork-creation` makes every artwork creation fail with a server error (counted as `error`), like a real bug; without it nothing changes. `make trigger-alert URL=<app address>` then makes 2 creation attempts with a throwaway user, and the alert fires within about 2 minutes. On prod, `make fault-on` sets the switch (SSM `/artmneme/artmneme-fault`, app restarted through SSM) and `make fault-off` removes it.
+
 ---
 
 ## Alert Inputs

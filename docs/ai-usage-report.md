@@ -414,6 +414,10 @@ Alert and local on-call engineer (2026-10-26):
 - Claude mapped "canvas component-creation failures" to artwork creation failures. The project owner chose: server-side failures only (storage, error), the rule kept in the repository and uploaded to Grafana Cloud, the owner "project owner", alerts by email. Claude wrote the rule and `observability/grafana_cloud.py` (`make grafana-cloud`) and tested both: the rule fired locally with all labels and the filtered dashboard link (the test also showed that `increase()` misses failures right after a deploy, so the rule compares with the value 10 minutes earlier), and the upload was tested against an empty Grafana.
 - The project owner wrote the role `docs/team/on-call-engineer.md`, decided that the responder may commit fixes, and chose the least costly, local version of the course's responder. Claude wrote `on-call-engineer/on_call.py` (`make on-call`) and tested it with a stand-in for the agent.
 
+Alert threshold and alert trigger (2026-10-26):
+
+- The project owner chose to fire on one server-side failure within 15 minutes (as first recorded) instead of three in ten. Claude changed the rule (wait 1 minute), added the fault switch `ARTMNEME_FAULT=artwork-creation` with a test, `make trigger-alert`, and `make fault-on` / `make fault-off` for prod, and tested the trigger end to end locally.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.

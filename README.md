@@ -271,7 +271,7 @@ aws ssm put-parameter --type SecureString --name /artmneme/otel-exporter-otlp-he
 
 ### Alert and on-call engineer
 
-The alert rule "Artwork creations are failing" (`observability/grafana/provisioning/alerting/artwork-creation-failures.json`) counts server-side artwork creation failures (`storage`, `error`; not wrong input) per environment and version. It names service, environment, version, owner and the filtered dashboard, plus first steps. The local Grafana loads it at start.
+The alert rule "Artwork creations are failing" (`observability/grafana/provisioning/alerting/artwork-creation-failures.json`) fires when at least one server-side artwork creation failure (`storage`, `error`; not wrong input) happened in the last 15 minutes, per environment and version. It names service, environment, version, owner and the filtered dashboard, plus first steps. The local Grafana loads it at start.
 
 To put the dashboard and the alert into Grafana Cloud, create a service account (Administration > Users and access > Service accounts, role Admin) with a token, store the Grafana address and the token in SSM, then run `make grafana-cloud` (again after every change to those files):
 
@@ -283,6 +283,11 @@ make grafana-cloud
 ```
 
 Grafana Cloud sends firing alerts to its default contact point: the email address of your Grafana Cloud account.
+
+To fire the alert on purpose (alert trigger):
+
+- Locally: start the backend with `ARTMNEME_FAULT=artwork-creation make run TELEMETRY=local` (or `TELEMETRY=cloud`), then run `make trigger-alert`.
+- On prod: `make fault-on`, then `make trigger-alert URL=https://<address>.sslip.io`, and afterwards `make fault-off`. The prod compose file must include `ARTMNEME_FAULT` (any deploy after 2026-10-26). The trigger leaves a throwaway user `alert-trigger-<time>@example.com`.
 
 `make on-call` starts the local on-call engineer (`on-call-engineer/on_call.py`): every minute it asks Grafana Cloud for firing alerts (`make on-call ALERTS=local` asks the local Grafana) and starts Claude Code headless for each new one, with `docs/team/on-call-engineer.md` as its instructions. It needs Claude Code installed and signed in. A fix appears as a local branch `oncall/<time>`: review it with `git log -p main..oncall/<time>`, then merge and push it as usual. Session logs are in `on-call-engineer/logs/`. Ctrl+C stops it.
 
