@@ -209,6 +209,16 @@ Traces
 
 using OpenTelemetry.
 
+Implemented (2026-10-26): `backend/telemetry.py` traces every request and records the HTTP metrics (request count, duration, errors) through the FastAPI instrumentation, sent with OTLP over HTTP to `OTEL_EXPORTER_OTLP_ENDPOINT`. Every span and metric carries:
+
+```text
+service.name                  artmneme-backend
+deployment.environment.name   prod (AWS) or local
+service.version               the image tag, e.g. 20261026-155049-1ae1c7e
+```
+
+Not yet: logs through OpenTelemetry, and the business metrics (Artworks Created, Relationship Explorations, Watchlist Conversions).
+
 ---
 
 # Metrics

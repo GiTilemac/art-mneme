@@ -239,6 +239,18 @@ The backend and the tests find these databases through two environment variables
 
 The port in these values must match your local server (for example 5433). These are local development values only; no `.env` file is read.
 
+## Telemetry
+
+The backend sends OpenTelemetry traces and HTTP metrics for every request (`backend/telemetry.py`), with OTLP over HTTP:
+
+| Variable | Used by | Value |
+|----------|---------|-------|
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | the backend | where to send, e.g. `http://localhost:4318` for a local OpenTelemetry Collector. Not set: nothing is sent. |
+| `DEPLOYMENT_ENVIRONMENT` | the backend | `deployment.environment.name`: `prod` on AWS (set in `deploy/docker-compose.prod.yaml`); `local` when not set |
+| `APP_VERSION` | the backend | `service.version`: the image tag, written into the image by `deploy/build.sh`; `unknown` when not set |
+
+`service.name` is always `artmneme-backend`.
+
 ## Photo storage
 
 Photos are stored by `backend/photos.py`, in one of two places:
