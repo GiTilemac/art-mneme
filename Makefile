@@ -12,7 +12,7 @@ export DATABASE_URL TEST_DATABASE_URL PHOTO_DIR
 TELEMETRY ?=
 SSM_PROFILE ?= artmneme-deploy
 
-.PHONY: run install migrate test frontend integration deploy-stack build deploy e2e deploy-ci-role observability observability-down grafana-cloud on-call
+.PHONY: run install migrate test frontend integration deploy-stack build deploy e2e deploy-ci-role observability observability-down grafana-cloud on-call trigger-alert fault-on fault-off
 
 # Install, bring the schema up to date, and start the API at http://localhost:8000/api.
 # With telemetry: `make run TELEMETRY=local` or `make run TELEMETRY=cloud` (environment "dev").
@@ -94,3 +94,15 @@ grafana-cloud:
 # ALERTS=cloud (default; Grafana Cloud, address and token from SSM) or ALERTS=local (local Grafana).
 on-call:
 	ALERTS=$(or $(ALERTS),cloud) python3 on-call-engineer/on_call.py
+
+# Alert trigger: 2 failing artwork creations at URL (default the local backend). Needs the fault switch on:
+# locally `ARTMNEME_FAULT=artwork-creation make run`, on prod `make fault-on` (and `make fault-off` afterwards).
+URL ?= http://localhost:8000
+trigger-alert:
+	deploy/trigger-alert.sh $(URL)
+
+fault-on:
+	deploy/fault.sh on
+
+fault-off:
+	deploy/fault.sh off

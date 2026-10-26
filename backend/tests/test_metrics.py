@@ -128,3 +128,14 @@ def test_metrics_are_exported_with_their_names_and_the_deployment_attributes(mon
     } <= names
     attributes = resource_metrics.resource.attributes
     assert (attributes["service.version"], attributes["deployment.environment.name"]) == ("20261026-155049-1ae1c7e", "prod")
+
+
+def test_the_fault_switch_makes_creation_fail_as_a_server_error(user, recorded, monkeypatch):
+    monkeypatch.setenv("ARTMNEME_FAULT", "artwork-creation")
+    client = TestClient(app, base_url="https://testserver", cookies=user.cookies, raise_server_exceptions=False)
+
+    assert post(client, {}, photo=JPEG).status_code == 500
+    assert recorded["artwork_creation_failures"].calls == [(1, {"reason": "error"})]
+
+    monkeypatch.delenv("ARTMNEME_FAULT")
+    assert post(client, {}, photo=JPEG).status_code == 201

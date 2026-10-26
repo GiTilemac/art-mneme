@@ -631,6 +631,9 @@ async def create_artwork_endpoint(
 
 
 async def receive_artwork(request: Request, user: dict, connection: Connection) -> dict:
+    if os.environ.get("ARTMNEME_FAULT") == "artwork-creation":
+        # Alert trigger (docs/observability.md > Alerting): makes every creation fail like a server-side bug.
+        raise RuntimeError("Fault switch ARTMNEME_FAULT=artwork-creation is on: artwork creation fails on purpose.")
     if not request.headers.get("content-type", "").startswith("multipart/form-data"):
         raise HTTPException(status_code=422, detail="The request must be multipart/form-data.")
     try:

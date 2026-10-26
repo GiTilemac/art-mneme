@@ -31,6 +31,8 @@ services:
       DEPLOYMENT_ENVIRONMENT: prod
       OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
       OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+      # Alert trigger: `make fault-on` / `make fault-off` (SSM /artmneme/artmneme-fault). Empty = off.
+      ARTMNEME_FAULT: ${ARTMNEME_FAULT:-}
       # Photos; access comes from the server's AWS role, so no keys are needed.
       S3_BUCKET: ${S3_BUCKET}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
