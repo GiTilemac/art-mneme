@@ -7,7 +7,7 @@ TEST_DATABASE_URL ?= postgresql+psycopg://artmneme:artmneme@localhost:$(DB_PORT)
 PHOTO_DIR ?= $(CURDIR)/backend/photos
 export DATABASE_URL TEST_DATABASE_URL PHOTO_DIR
 
-.PHONY: run install migrate test frontend integration
+.PHONY: run install migrate test frontend integration e2e
 
 # Install, bring the schema up to date, and start the API at http://localhost:8000/api
 run: install migrate
@@ -34,3 +34,12 @@ integration:
 	docker compose down -v
 	docker compose up -d --build
 	cd backend && uv run pytest integration; status=$$?; cd .. && docker compose down -v; exit $$status
+
+# The same, with a browser: run the end-to-end tests in e2e/ against the stack on port 8093.
+e2e: export COMPOSE_PROJECT_NAME = artmneme-e2e
+e2e: export APP_PORT = 8093
+e2e: export E2E_URL = http://localhost:8093
+e2e:
+	docker compose down -v
+	docker compose up -d --build
+	cd backend && uv run pytest ../e2e; status=$$?; cd .. && docker compose down -v; exit $$status
