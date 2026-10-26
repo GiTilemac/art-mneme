@@ -24,4 +24,4 @@ test:
 
 # Start the frontend (in a second terminal, while `make run` is running); it passes /api calls to the backend.
 frontend:
-	cd frontend && npm install && npm run dev
+	cd frontend && npm run dev
