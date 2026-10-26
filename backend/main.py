@@ -422,57 +422,70 @@ def photo_version(path: str | None) -> str | None:
 
 def artwork_response(connection: Connection, artwork_id: int) -> dict:
     """The `Artwork` of one row, as in openapi.yaml."""
-    row = connection.execute(
+    return artwork_responses(connection, [artwork_id])[0]
+
+
+def artwork_responses(connection: Connection, ids: list[int]) -> list[dict]:
+    """The `Artwork` of each row, in the order of `ids`. Three queries, however many artworks."""
+    rows = connection.execute(
         text(
             "SELECT a.*, artists.name AS artist_name, subjects.name AS subject_name, movements.name AS movement_name "
             "FROM artworks a LEFT JOIN artists ON artists.id = a.artist_id "
             "LEFT JOIN subjects ON subjects.id = a.subject_id LEFT JOIN movements ON movements.id = a.movement_id "
-            "WHERE a.id = :id"
+            "WHERE a.id = ANY(:ids)"
         ),
-        {"id": artwork_id},
-    ).one()
-    tags = connection.execute(
-        text(
-            "SELECT tags.id, tags.name FROM artwork_tags JOIN tags ON tags.id = tag_id "
-            "WHERE artwork_id = :id ORDER BY lower(tags.name), tags.id"
-        ),
-        {"id": artwork_id},
+        {"ids": ids},
     ).all()
-    detail_photo_ids = connection.execute(
-        text("SELECT id FROM detail_photos WHERE artwork_id = :id ORDER BY id"), {"id": artwork_id}
-    ).scalars().all()
-    date = None
-    if row.year_start is not None:
-        date = {
-            "from_year": abs(row.year_start),
-            "to_year": None if row.year_end is None else abs(row.year_end),
-            "circa": row.date_is_circa,
-            "from_bc": row.year_start < 0,
-            "to_bc": row.year_end is not None and row.year_end < 0,
-            "display": row.date_display,
-        }
+    tags = {id: [] for id in ids}
+    for tag in connection.execute(
+        text(
+            "SELECT artwork_id, tags.id, tags.name FROM artwork_tags JOIN tags ON tags.id = tag_id "
+            "WHERE artwork_id = ANY(:ids) ORDER BY lower(tags.name), tags.id"
+        ),
+        {"ids": ids},
+    ):
+        tags[tag.artwork_id].append({"id": tag.id, "name": tag.name})
+    detail_photo_ids = {id: [] for id in ids}
+    for photo in connection.execute(
+        text("SELECT artwork_id, id FROM detail_photos WHERE artwork_id = ANY(:ids) ORDER BY id"), {"ids": ids}
+    ):
+        detail_photo_ids[photo.artwork_id].append(photo.id)
 
     def entry(id, name):
         return None if id is None else {"id": id, "name": name}
 
-    return {
-        "id": row.id,
-        "state": row.collection_state,
-        "title": row.title,
-        "artist": entry(row.artist_id, row.artist_name),
-        "date": date,
-        "subject": entry(row.subject_id, row.subject_name),
-        "movement": entry(row.movement_id, row.movement_name),
-        "museum": row.museum,
-        "tags": [{"id": tag.id, "name": tag.name} for tag in tags],
-        "notes": row.notes,
-        "has_photo": row.artwork_photo_path is not None,
-        "photo_version": photo_version(row.artwork_photo_path),
-        "detail_photo_ids": list(detail_photo_ids),
-        "is_discoverable": row.is_discoverable,
-        "are_notes_discoverable": row.are_notes_discoverable,
-        "created_at": row.created_at,
-    }
+    def response(row) -> dict:
+        date = None
+        if row.year_start is not None:
+            date = {
+                "from_year": abs(row.year_start),
+                "to_year": None if row.year_end is None else abs(row.year_end),
+                "circa": row.date_is_circa,
+                "from_bc": row.year_start < 0,
+                "to_bc": row.year_end is not None and row.year_end < 0,
+                "display": row.date_display,
+            }
+        return {
+            "id": row.id,
+            "state": row.collection_state,
+            "title": row.title,
+            "artist": entry(row.artist_id, row.artist_name),
+            "date": date,
+            "subject": entry(row.subject_id, row.subject_name),
+            "movement": entry(row.movement_id, row.movement_name),
+            "museum": row.museum,
+            "tags": tags[row.id],
+            "notes": row.notes,
+            "has_photo": row.artwork_photo_path is not None,
+            "photo_version": photo_version(row.artwork_photo_path),
+            "detail_photo_ids": detail_photo_ids[row.id],
+            "is_discoverable": row.is_discoverable,
+            "are_notes_discoverable": row.are_notes_discoverable,
+            "created_at": row.created_at,
+        }
+
+    by_id = {row.id: response(row) for row in rows}
+    return [by_id[id] for id in ids]
 
 
 def refuse_unknown_entry(connection: Connection, table: str, id: int | None, label: str) -> None:
@@ -769,3 +782,32 @@ def get_photo(
         raise HTTPException(status_code=404, detail=PHOTO_NOT_FOUND) from None
     cache = "private, max-age=31536000, immutable" if v == photo_version(path) else "private, no-store"
     return Response(data, media_type="image/jpeg", headers={"Cache-Control": cache})
+
+
+@app.get("/api/artworks")
+def list_artworks(
+    state: str | None = None,
+    page: int = Query(1, ge=1),
+    user: dict = Depends(current_user),
+    connection: Connection = Depends(get_connection),
+):
+    """One page of the user's own artworks of one state, newest first. Search and filters come with task 13."""
+    if state not in ("COLLECTION", "WATCHLIST"):
+        raise HTTPException(status_code=422, detail="Choose Collection or Watchlist.")
+    where = "user_id = :user_id AND collection_state = :state"
+    values = {"user_id": user["id"], "state": state}
+    total = connection.execute(text(f"SELECT count(*) FROM artworks WHERE {where}"), values).scalar()
+    offset = (page - 1) * PAGE_SIZE
+    ids = []
+    # A page after the last is empty; not asking the database also keeps a huge offset away from it.
+    if offset < total:
+        ids = connection.execute(
+            text(f"SELECT id FROM artworks WHERE {where} ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset"),
+            {**values, "limit": PAGE_SIZE, "offset": offset},
+        ).scalars().all()
+    return {
+        "items": artwork_responses(connection, list(ids)) if ids else [],
+        "total": total,
+        "page": page,
+        "page_size": PAGE_SIZE,
+    }
