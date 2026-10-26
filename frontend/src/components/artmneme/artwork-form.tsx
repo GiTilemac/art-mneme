@@ -1,6 +1,4 @@
 import { useState, type FormEvent, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { AlertTriangle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,7 +6,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Button } from "@/components/ui/button";
 import { EntityPicker } from "./entity-picker";
 import { TagInput } from "./tag-input";
-import { api } from "@/services";
 import { formatDate, toInput, type ArtworkDate, type ArtworkDraft, type ArtworkInput } from "@/lib/domain";
 
 function Field({ label, children, hint }: { label: string; children: ReactNode; hint?: string }) {
@@ -25,23 +22,28 @@ function DateInput({ value, onChange }: { value: ArtworkDate | null; onChange: (
   const [from, setFrom] = useState(value ? String(value.fromYear) : "");
   const [to, setTo] = useState(value?.toYear != null ? String(value.toYear) : "");
   const [circa, setCirca] = useState(value?.circa ?? false);
-  const [bc, setBc] = useState(value?.bc ?? false);
-  const emit = (f: string, t: string, c: boolean, b: boolean) => {
+  const [fromBc, setFromBc] = useState(value?.fromBc ?? false);
+  const [toBc, setToBc] = useState(value?.toBc ?? false);
+  const emit = (f: string, t: string, c: boolean, fb: boolean, tb: boolean) => {
     const fy = parseInt(f, 10);
     const ty = parseInt(t, 10);
-    onChange(Number.isFinite(fy) && fy > 0 ? { fromYear: fy, toYear: Number.isFinite(ty) && ty > 0 ? ty : null, circa: c, bc: b } : null);
+    const hasTo = Number.isFinite(ty) && ty > 0;
+    onChange(Number.isFinite(fy) && fy > 0 ? { fromYear: fy, toYear: hasTo ? ty : null, circa: c, fromBc: fb, toBc: hasTo && tb } : null);
   };
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Input inputMode="numeric" className="w-24" placeholder="From" value={from} onChange={(e) => { setFrom(e.target.value); emit(e.target.value, to, circa, bc); }} />
-        <span className="text-muted-foreground">–</span>
-        <Input inputMode="numeric" className="w-24" placeholder="To" value={to} onChange={(e) => { setTo(e.target.value); emit(from, e.target.value, circa, bc); }} />
+        <Input inputMode="numeric" className="w-24" placeholder="From" value={from} onChange={(e) => { setFrom(e.target.value); emit(e.target.value, to, circa, fromBc, toBc); }} />
         <label className="flex items-center gap-1.5 text-sm">
-          <Checkbox checked={circa} onCheckedChange={(v) => { setCirca(!!v); emit(from, to, !!v, bc); }} /> Circa
+          <Checkbox checked={fromBc} onCheckedChange={(v) => { setFromBc(!!v); emit(from, to, circa, !!v, toBc); }} /> BC
+        </label>
+        <span className="text-muted-foreground">–</span>
+        <Input inputMode="numeric" className="w-24" placeholder="To" value={to} onChange={(e) => { setTo(e.target.value); emit(from, e.target.value, circa, fromBc, toBc); }} />
+        <label className="flex items-center gap-1.5 text-sm">
+          <Checkbox checked={toBc} onCheckedChange={(v) => { setToBc(!!v); emit(from, to, circa, fromBc, !!v); }} /> BC
         </label>
         <label className="flex items-center gap-1.5 text-sm">
-          <Checkbox checked={bc} onCheckedChange={(v) => { setBc(!!v); emit(from, to, circa, !!v); }} /> BC
+          <Checkbox checked={circa} onCheckedChange={(v) => { setCirca(!!v); emit(from, to, !!v, fromBc, toBc); }} /> Circa
         </label>
       </div>
       {value && <p className="text-xs text-muted-foreground">Shown as <span className="text-foreground">{formatDate(value)}</span></p>}
@@ -51,14 +53,12 @@ function DateInput({ value, onChange }: { value: ArtworkDate | null; onChange: (
 
 export function ArtworkForm({
   initial,
-  excludeId,
   submitLabel,
   onSubmit,
   onCancel,
   extra,
 }: {
   initial: ArtworkDraft;
-  excludeId?: string;
   submitLabel: string;
   onSubmit: (v: ArtworkInput) => Promise<void>;
   onCancel?: () => void;
@@ -66,18 +66,17 @@ export function ArtworkForm({
 }) {
   const [v, setV] = useState<ArtworkDraft>(initial);
   const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const set = <K extends keyof ArtworkDraft>(k: K, val: ArtworkDraft[K]) => setV((p) => ({ ...p, [k]: val }));
-
-  const { data: dups = [] } = useQuery({
-    queryKey: ["duplicates", v.title, v.artist?.id, v.date, excludeId],
-    queryFn: () => api.findDuplicates(toInput(v), excludeId),
-  });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
     setBusy(true);
+    setError(null);
     try {
       await onSubmit(toInput(v));
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setBusy(false);
     }
@@ -97,12 +96,6 @@ export function ArtworkForm({
           <DateInput value={v.date} onChange={(d) => set("date", d)} />
         </Field>
       </div>
-      {dups.length > 0 && (
-        <div className="flex gap-2 rounded-md bg-warning p-3 text-sm text-warning-foreground">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-          <span>You already have an artwork with this title, artist and date. You can still save it.</span>
-        </div>
-      )}
       <div className="grid gap-6 sm:grid-cols-2">
         <Field label="Subject">
           <EntityPicker kind="subjects" value={v.subject} onChange={(e) => set("subject", e)} placeholder="Search or create" />
@@ -120,6 +113,7 @@ export function ArtworkForm({
       <Field label="Notes">
         <Textarea rows={4} value={v.notes} onChange={(e) => set("notes", e.target.value)} />
       </Field>
+      {error && <p className="text-sm text-destructive">{error}</p>}
       <div className="flex flex-wrap gap-2">
         <Button type="submit" disabled={busy}>{busy ? "Saving…" : submitLabel}</Button>
         {onCancel && <Button type="button" variant="ghost" onClick={onCancel}>Cancel</Button>}

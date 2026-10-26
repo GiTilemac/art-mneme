@@ -6,10 +6,9 @@ import { ArtworkForm } from "@/components/artmneme/artwork-form";
 import { PhotoButton } from "@/components/artmneme/photo-button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { api } from "@/services";
-import { emptyDraft, validateNewArtwork, type ArtworkDraft, type ArtworkState } from "@/lib/domain";
+import { emptyDraft, validateNewArtwork, type ArtworkState } from "@/lib/domain";
 
 export const Route = createFileRoute("/_app/artworks/new")({
-  validateSearch: (s: Record<string, unknown>): { from?: string | undefined } => ({ from: typeof s["from"] === "string" ? s["from"] : undefined }),
   head: () => ({
     meta: [
       { title: "Add artwork — ArtMneme" },
@@ -21,26 +20,13 @@ export const Route = createFileRoute("/_app/artworks/new")({
   component: NewArtwork,
 });
 
-/** Prefill passed from exploration ("add to my watchlist"). */
-export const PREFILL_KEY = "artmneme-prefill";
-
 function NewArtwork() {
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const { from } = Route.useSearch();
-  // Coming from exploration means "add to my watchlist".
-  const [state, setState] = useState<ArtworkState>(from ? "WATCHLIST" : "COLLECTION");
+  const [state, setState] = useState<ArtworkState>("COLLECTION");
   const [photo, setPhoto] = useState<Blob | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
-  const [initial, setInitial] = useState<ArtworkDraft | null>(null);
-
-  useEffect(() => {
-    const raw = from ? sessionStorage.getItem(PREFILL_KEY) : null;
-    setInitial(raw ? { ...emptyDraft(), ...(JSON.parse(raw) as Partial<ArtworkDraft>) } : emptyDraft());
-  }, [from]);
   useEffect(() => () => { if (preview) URL.revokeObjectURL(preview); }, [preview]);
-
-  if (!initial) return null;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -50,7 +36,7 @@ function NewArtwork() {
       </p>
       <div className="mt-10">
         <ArtworkForm
-          initial={initial}
+          initial={emptyDraft()}
           submitLabel={state === "COLLECTION" ? "Add to collection" : "Add to watchlist"}
           extra={
             <div className="space-y-4">
@@ -73,16 +59,11 @@ function NewArtwork() {
           }
           onSubmit={async (v) => {
             const invalid = validateNewArtwork(state, !!photo);
-            if (invalid) return void toast.error(invalid);
-            try {
-              const a = await api.createArtwork(v, state, photo);
-              sessionStorage.removeItem(PREFILL_KEY);
-              await qc.invalidateQueries({ queryKey: ["artworks"] });
-              toast.success(state === "COLLECTION" ? "Added to your collection" : "Added to your watchlist");
-              navigate({ to: "/artworks/$id", params: { id: a.id } });
-            } catch (e) {
-              toast.error((e as Error).message);
-            }
+            if (invalid) throw new Error(invalid);
+            const a = await api.createArtwork(v, state, photo);
+            await qc.invalidateQueries({ queryKey: ["artworks"] });
+            toast.success(state === "COLLECTION" ? "Added to your collection" : "Added to your watchlist");
+            navigate({ to: "/artworks/$id", params: { id: a.id } });
           }}
         />
       </div>

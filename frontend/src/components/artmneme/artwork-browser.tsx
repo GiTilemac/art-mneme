@@ -4,6 +4,7 @@ import { Link } from "@tanstack/react-router";
 import { LayoutGrid, List, SlidersHorizontal } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { ArtworkCard } from "./artwork-card";
 import { EntityPicker } from "./entity-picker";
 import { TagInput } from "./tag-input";
@@ -19,7 +20,9 @@ export interface BrowseSearch {
   museum?: string | undefined;
   tags?: Entity[] | undefined;
   from?: number | undefined;
+  fromBc?: boolean | undefined;
   to?: number | undefined;
+  toBc?: boolean | undefined;
 }
 
 const str = (v: unknown) => (typeof v === "string" && v ? v : undefined);
@@ -41,7 +44,9 @@ export const parseBrowseSearch = (s: Record<string, unknown>): BrowseSearch => (
   museum: str(s["museum"]),
   tags: entities(s["tags"]),
   from: num(s["from"]),
+  fromBc: s["fromBc"] === true ? true : undefined,
   to: num(s["to"]),
+  toBc: s["toBc"] === true ? true : undefined,
 });
 
 
@@ -71,7 +76,9 @@ export function ArtworkBrowser({
         museum: search.museum,
         tagIds: tags.map((t) => t.id),
         fromYear: search.from,
+        fromBc: search.fromBc,
         toYear: search.to,
+        toBc: search.toBc,
         page,
       }),
   });
@@ -105,10 +112,15 @@ export function ArtworkBrowser({
           <div className="space-y-1"><span className="eyebrow">Date range</span>
             <div className="flex items-center gap-2">
               <Input inputMode="numeric" placeholder="From" defaultValue={search.from} onChange={(e) => set({ from: num(e.target.value) })} />
+              <label className="flex items-center gap-1.5 text-sm">
+                <Checkbox checked={!!search.fromBc} onCheckedChange={(v) => set({ fromBc: v === true ? true : undefined })} /> BC
+              </label>
               <span>–</span>
               <Input inputMode="numeric" placeholder="To" defaultValue={search.to} onChange={(e) => set({ to: num(e.target.value) })} />
+              <label className="flex items-center gap-1.5 text-sm">
+                <Checkbox checked={!!search.toBc} onCheckedChange={(v) => set({ toBc: v === true ? true : undefined })} /> BC
+              </label>
             </div>
-            <p className="text-xs text-muted-foreground">Use negative years for BC.</p>
           </div>
           <div className="space-y-1 sm:col-span-2"><span className="eyebrow">Tags (all must match)</span>
             <TagInput allowCreate={false} value={tags} onChange={(t) => set({ tags: t.length ? t : undefined })} />

@@ -2,35 +2,32 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { Compass, Trash2, X } from "lucide-react";
+import { Compass, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { ArtworkForm } from "@/components/artmneme/artwork-form";
 import { PhotoButton } from "@/components/artmneme/photo-button";
-import { usePhotoUrl } from "@/hooks/use-artmneme";
 import { api } from "@/services";
-import { canBeDiscoverable, formatDate, toInput, type Artwork } from "@/lib/domain";
+import type { Artwork } from "@/lib/domain";
 
 export const Route = createFileRoute("/_app/artworks/$id")({
   head: () => ({
     meta: [
       { title: "Artwork — ArtMneme" },
-      { name: "description", content: "Artwork details, notes and detail photos." },
+      { name: "description", content: "Artwork details and notes." },
       { property: "og:title", content: "Artwork — ArtMneme" },
-      { property: "og:description", content: "Artwork details, notes and detail photos." },
+      { property: "og:description", content: "Artwork details and notes." },
     ],
   }),
   component: ArtworkPage,
 });
 
 function MainPhoto({ a }: { a: Artwork }) {
-  const url = usePhotoUrl(a.hasPhoto ? () => api.getArtworkPhoto(a.id) : null, a);
+  const url = api.photoUrl(a);
   if (!url)
     return (
       <div className="flex aspect-[4/5] items-center justify-center rounded-sm bg-muted">
@@ -40,34 +37,6 @@ function MainPhoto({ a }: { a: Artwork }) {
   return <img src={url} alt="" className="w-full rounded-sm" />;
 }
 
-function DetailPhoto({ artworkId, photoId, onOpen, onDelete }: { artworkId: string; photoId: string; onOpen: () => void; onDelete: () => void }) {
-  const url = usePhotoUrl(() => api.getDetailPhoto(artworkId, photoId), photoId);
-  return (
-    <div className="relative">
-      <button type="button" onClick={onOpen} className="block w-full" aria-label="View detail photo">
-        <div className="aspect-square overflow-hidden rounded-sm bg-muted">
-          {url && <img src={url} alt="" className="h-full w-full object-cover" />}
-        </div>
-      </button>
-      <button type="button" onClick={onDelete} aria-label="Delete detail photo" className="absolute right-1 top-1 rounded-full bg-background/90 p-1">
-        <X className="size-3.5" />
-      </button>
-    </div>
-  );
-}
-
-function Viewer({ artworkId, photoId, onClose }: { artworkId: string; photoId: string | null; onClose: () => void }) {
-  const url = usePhotoUrl(photoId ? () => api.getDetailPhoto(artworkId, photoId) : null, photoId);
-  return (
-    <Dialog open={!!photoId} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-4xl p-2">
-        <DialogTitle className="sr-only">Detail photo</DialogTitle>
-        {url && <img src={url} alt="Detail" className="max-h-[80vh] w-full object-contain" />}
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 function ArtworkPage() {
   const { id } = Route.useParams();
   const qc = useQueryClient();
@@ -75,7 +44,6 @@ function ArtworkPage() {
   const [editing, setEditing] = useState(false);
   const [editingNotes, setEditingNotes] = useState(false);
   const [notes, setNotes] = useState("");
-  const [viewing, setViewing] = useState<string | null>(null);
   const { data: a, error } = useQuery({ queryKey: ["artwork", id], queryFn: () => api.getArtwork(id) });
 
   if (error) return <p className="text-muted-foreground">{(error as Error).message}</p>;
@@ -101,11 +69,11 @@ function ArtworkPage() {
         <h1 className="mb-10 text-4xl">Edit artwork</h1>
         <ArtworkForm
           initial={a}
-          excludeId={a.id}
           submitLabel="Save"
           onCancel={() => setEditing(false)}
           onSubmit={async (v) => {
-            await run(() => api.updateArtwork(a.id, v), "Saved");
+            refresh(await api.updateArtwork(a.id, v));
+            toast.success("Saved");
             setEditing(false);
           }}
         />
@@ -125,8 +93,10 @@ function ArtworkPage() {
         <PhotoButton variant={state === "COLLECTION" ? "outline" : "default"} size="sm" onPhoto={(b) => run(() => api.setArtworkPhoto(a.id, b), state === "COLLECTION" ? "Photo replaced" : "Moved to your collection")}>
           {state === "COLLECTION" ? "Replace photo" : "I've seen it — add my photo"}
         </PhotoButton>
-        {state === "WATCHLIST" && a.hasPhoto && (
-          <p className="text-xs text-muted-foreground">Adding your own photo moves it to your collection and replaces this one.</p>
+        {state === "WATCHLIST" && (
+          <p className="text-xs text-muted-foreground">
+            Adding your own photo moves this artwork into your collection{a.hasPhoto ? " and replaces this one" : ""}.
+          </p>
         )}
       </div>
 
@@ -134,7 +104,7 @@ function ArtworkPage() {
         <p className="eyebrow">{state === "COLLECTION" ? "Collection" : "Watchlist"}</p>
         <h1 className="mt-2 text-5xl leading-tight">{a.title || "Untitled"}</h1>
         <p className="mt-2 text-lg text-muted-foreground">
-          {[a.artist?.name, formatDate(a.date)].filter(Boolean).join(" · ") || "No artist or date yet"}
+          {[a.artist?.name, a.date?.display].filter(Boolean).join(" · ") || "No artist or date yet"}
         </p>
 
         <dl className="mt-8 divide-y border-y">
@@ -175,43 +145,6 @@ function ArtworkPage() {
           )}
         </section>
 
-        <section className="mt-10">
-          <div className="flex items-center justify-between">
-            <h2 className="text-2xl">Details</h2>
-            <PhotoButton variant="ghost" size="sm" onPhoto={(b) => run(() => api.addDetailPhoto(a.id, b))}>Add detail photo</PhotoButton>
-          </div>
-          {a.detailPhotoIds.length ? (
-            <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
-              {a.detailPhotoIds.map((p) => (
-                <DetailPhoto key={p} artworkId={a.id} photoId={p} onOpen={() => setViewing(p)} onDelete={() => run(() => api.deleteDetailPhoto(a.id, p))} />
-              ))}
-            </div>
-          ) : (
-            <p className="mt-2 text-sm text-muted-foreground">Brushstrokes, signatures, frames — close-ups live here.</p>
-          )}
-        </section>
-
-        <section className="mt-10 space-y-4 rounded-md border bg-card p-5">
-          <h2 className="text-2xl">Sharing</h2>
-          <label className="flex items-start justify-between gap-4">
-            <span className="text-sm">
-              Discoverable
-              <span className="block text-xs text-muted-foreground">
-                Others can find title, artist, date, subject, movement, museum and tags while exploring. Photos are never shared.
-                {!canBeDiscoverable(toInput(a)) && " Requires title, artist and date."}
-              </span>
-            </span>
-            <Switch checked={a.discoverable} onCheckedChange={(v) => run(() => api.setDiscoverable(a.id, v))} />
-          </label>
-          <label className="flex items-start justify-between gap-4">
-            <span className="text-sm">
-              Share notes
-              <span className="block text-xs text-muted-foreground">Notes stay private unless you turn this on.</span>
-            </span>
-            <Switch checked={a.notesDiscoverable} onCheckedChange={(v) => run(() => api.setNotesDiscoverable(a.id, v))} />
-          </label>
-        </section>
-
         <AlertDialog>
           <AlertDialogTrigger asChild>
             <Button variant="ghost" size="sm" className="mt-8 text-destructive"><Trash2 /> Delete artwork</Button>
@@ -219,13 +152,17 @@ function ArtworkPage() {
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Delete this artwork?</AlertDialogTitle>
-              <AlertDialogDescription>Its photos and notes are removed permanently.</AlertDialogDescription>
+              <AlertDialogDescription>Its photo and notes are removed permanently.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancel</AlertDialogCancel>
               <AlertDialogAction
                 onClick={async () => {
-                  await api.deleteArtwork(a.id);
+                  try {
+                    await api.deleteArtwork(a.id);
+                  } catch (e) {
+                    return void toast.error((e as Error).message);
+                  }
                   await qc.invalidateQueries({ queryKey: ["artworks"] });
                   navigate({ to: state === "COLLECTION" ? "/collection" : "/watchlist" });
                 }}
@@ -236,7 +173,6 @@ function ArtworkPage() {
           </AlertDialogContent>
         </AlertDialog>
       </div>
-      <Viewer artworkId={a.id} photoId={viewing} onClose={() => setViewing(null)} />
     </div>
   );
 }
