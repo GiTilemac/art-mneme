@@ -209,6 +209,8 @@ Hosting (decided by the project owner on 2026-10-26): AWS, one EC2 server create
 
 CI/CD: GitHub Actions (`.github/workflows/ci-cd.yml`) runs all tests on every push and deploys `main` to AWS through a GitHub OIDC role (`deploy/github-oidc.yaml`), then checks `/api/health`.
 
+Environments (decided by the project owner on 2026-10-26): dev runs locally (`make run` and `make frontend`, or `docker compose up --build`); the AWS stack `artmneme` is prod. A separate dev stack on AWS is postponed.
+
 ---
 
 ## Test Tools
