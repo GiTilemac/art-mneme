@@ -4,7 +4,7 @@ import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/services";
 
-// Signed-in area. The mock keeps the session in the browser, so this only runs client-side.
+// Signed-in area. The session cookie is checked through the API, so this only runs client-side.
 export const Route = createFileRoute("/_app")({
   ssr: false,
   beforeLoad: async ({ location }) => {

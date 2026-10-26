@@ -8,7 +8,7 @@ export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
       { title: "ArtMneme — remember the art you've seen" },
-      { name: "description", content: "Collect artworks you've encountered, keep notes and detail photos, and explore how they connect." },
+      { name: "description", content: "Collect artworks you've encountered, keep notes, and explore how they connect." },
       { property: "og:title", content: "ArtMneme — remember the art you've seen" },
       { property: "og:description", content: "A personal artwork collection and relationship explorer." },
       { property: "og:type", content: "website" },
