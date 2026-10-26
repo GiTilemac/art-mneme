@@ -375,6 +375,7 @@ Deployment to AWS (2026-10-26):
 
 - Claude compared four AWS options with their costs; the project owner chose one EC2 server running Docker Compose, created with CloudFormation, with photos kept in Cloudflare R2.
 - Claude wrote `deploy/cloudformation.yaml`, `deploy/docker-compose.prod.yaml` (with Caddy for HTTPS), `deploy/Caddyfile`, `deploy/deploy.sh` and the `make deploy-stack` and `make deploy` commands, and checked the template with cfn-lint and AWS's template validation. Creating the AWS resources is left to the project owner.
+- When the project owner pointed out that photos still went to Cloudflare R2, Claude proposed AWS S3; the project owner decided on 2026-10-26 to use S3. Claude changed `backend/photos.py` and its tests from R2 to S3 (access through the server's AWS role, no stored keys) and added the private bucket to the template.
 
 Community postponed to a later version (backlog rework, 2026-10-26):
 

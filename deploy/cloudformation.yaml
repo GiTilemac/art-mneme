@@ -2,7 +2,8 @@ AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   ArtMneme on one EC2 server that runs deploy/docker-compose.prod.yaml (app, PostgreSQL, Caddy for HTTPS).
   Create or update with `make deploy-stack`; put a new app version on it with `make deploy`.
-  Secrets are SSM SecureString parameters under /artmneme/ (see README.md), never in this template.
+  Photos are kept in a private S3 bucket. The database password is the SSM SecureString /artmneme/postgres-password
+  (see README.md), never in this template.
 
 Parameters:
   InstanceType:
@@ -14,6 +15,20 @@ Parameters:
     Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
 
 Resources:
+  # Photos. Kept when the stack is deleted, so photos are never lost by accident.
+  PhotoBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+
   Repository:
     Type: AWS::ECR::Repository
     Properties:
@@ -48,6 +63,9 @@ Resources:
                 Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
                 Resource: !GetAtt Repository.Arn
               - Effect: Allow
+                Action: [s3:GetObject, s3:PutObject, s3:DeleteObject]
+                Resource: !Sub ${PhotoBucket.Arn}/*
+              - Effect: Allow
                 Action: ssm:GetParametersByPath
                 Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/artmneme
 
@@ -71,7 +89,8 @@ Resources:
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref ServerProfile
       SecurityGroupIds: [!GetAtt WebSecurityGroup.GroupId]
-      MetadataOptions: { HttpTokens: required }
+      # Hop limit 2: the app reaches the server's role from inside its container.
+      MetadataOptions: { HttpTokens: required, HttpPutResponseHopLimit: 2 }
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs: { VolumeSize: 20, VolumeType: gp3, Encrypted: true }
@@ -107,7 +126,9 @@ Resources:
           {
             echo "IMAGE=$(cat image)"
             echo "APP_HOST=${!ip//./-}.sslip.io"
-            # /artmneme/r2-access-key-id becomes R2_ACCESS_KEY_ID, and so on.
+            echo "S3_BUCKET=${PhotoBucket}"
+            echo "AWS_DEFAULT_REGION=${AWS::Region}"
+            # /artmneme/postgres-password becomes POSTGRES_PASSWORD.
             aws ssm get-parameters-by-path --region ${AWS::Region} --path /artmneme --with-decryption \
               --query 'Parameters[].[Name,Value]' --output text |
               while IFS=$'\t' read -r name value; do
@@ -182,5 +203,7 @@ Outputs:
       - Host: !Join ["-", !Split [".", !Ref PublicAddress]]
   RepositoryUri:
     Value: !GetAtt Repository.RepositoryUri
+  PhotoBucket:
+    Value: !Ref PhotoBucket
   InstanceId:
     Value: !Ref Server

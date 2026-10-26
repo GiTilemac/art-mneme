@@ -246,18 +246,15 @@ Photos are stored by `backend/photos.py`, in one of two places:
 | Variable | Used by | Value |
 |----------|---------|-------|
 | `PHOTO_DIR` | the backend (development) | a folder, created if missing. Local value: `$PWD/photos` (ignored by git) |
-| `R2_ACCOUNT_ID` | the backend (production) | the Cloudflare account id |
-| `R2_BUCKET` | the backend (production) | the name of the private R2 bucket |
-| `R2_ACCESS_KEY_ID` | the backend (production) | the API token's access key id |
-| `R2_SECRET_ACCESS_KEY` | the backend (production) | the API token's secret |
+| `S3_BUCKET` | the backend (production) | the name of the private AWS S3 bucket |
 
-If `PHOTO_DIR` is set, photos are files in that folder and the R2 variables are not used. If it is not set, all four R2 variables are needed. They are only checked when photo storage is first used. For local development:
+If `PHOTO_DIR` is set, photos are files in that folder and `S3_BUCKET` is not used. If it is not set, `S3_BUCKET` is needed; it is only checked when photo storage is first used. The AWS credentials and region come from the usual AWS environment (on the server: its AWS role, so no keys are stored). For local development:
 
 ```bash
 export PHOTO_DIR=$PWD/photos
 ```
 
-The R2 account, the bucket and its API token are created by the project owner, not by the developer. The bucket must keep public access turned off (no `r2.dev` address, no custom domain), and its API token needs only object read and write rights on that one bucket. Never commit these values. The tests use a temporary folder and simulated R2 answers; they never contact R2.
+In production the bucket is created by `deploy/cloudformation.yaml`, with all public access blocked. The tests use a temporary folder and simulated S3 answers; they never contact AWS.
 
 ## Install
 
@@ -305,7 +302,7 @@ docker build -t artmneme .
 docker run -p 8000:8000 -e DATABASE_URL=... -e PHOTO_DIR=/photos artmneme
 ```
 
-`DATABASE_URL` must reach the database from inside the container. Use the four R2 variables instead of `PHOTO_DIR` in production. At start the container brings the database schema up to date.
+`DATABASE_URL` must reach the database from inside the container. Use `S3_BUCKET` instead of `PHOTO_DIR` in production. At start the container brings the database schema up to date.
 
 To run the app together with its own PostgreSQL, use Docker Compose:
 
@@ -325,20 +322,15 @@ Then open http://localhost:8000. The database and the photos are kept in Docker 
 
 ## Deploy to AWS
 
-One EC2 server runs `deploy/docker-compose.prod.yaml`: the app, PostgreSQL and Caddy, which gives HTTPS with a free Let's Encrypt certificate. `deploy/cloudformation.yaml` creates everything: the server with a fixed public address, an ECR repository for the image, the server's permissions, a firewall that opens only ports 80 and 443, and a daily disk snapshot kept for 7 days. Photos stay in Cloudflare R2. The cost is about $13 a month.
+One EC2 server runs `deploy/docker-compose.prod.yaml`: the app, PostgreSQL and Caddy, which gives HTTPS with a free Let's Encrypt certificate. `deploy/cloudformation.yaml` creates everything: the server with a fixed public address, an ECR repository for the image, the server's permissions, a firewall that opens only ports 80 and 443, a private S3 bucket for the photos, and a daily disk snapshot kept for 7 days. The cost is about $13 a month.
 
 One-time steps:
 
 1. Configure the AWS CLI (`aws configure`) for a user that may manage CloudFormation, EC2, IAM roles, ECR, SSM and Data Lifecycle Manager. On a personal account, the simplest choice is the `AdministratorAccess` policy. Set an AWS Budgets alarm, for example at $15 a month.
-2. In Cloudflare, create a private R2 bucket and an API token with object read and write rights on that bucket only.
-3. Store the secrets in SSM Parameter Store. Use letters and digits only for the database password:
+2. Store the database password in SSM Parameter Store (letters and digits only, because it is part of the database address):
 
 ```bash
 aws ssm put-parameter --type SecureString --name /artmneme/postgres-password --value "$(openssl rand -hex 24)"
-aws ssm put-parameter --type SecureString --name /artmneme/r2-account-id --value <account id>
-aws ssm put-parameter --type SecureString --name /artmneme/r2-bucket --value <bucket name>
-aws ssm put-parameter --type SecureString --name /artmneme/r2-access-key-id --value <access key id>
-aws ssm put-parameter --type SecureString --name /artmneme/r2-secret-access-key --value <secret access key>
 ```
 
 Then, from the repository root:

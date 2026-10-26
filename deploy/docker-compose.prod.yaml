@@ -1,5 +1,5 @@
 # Production on the EC2 server (deploy/cloudformation.yaml). `make deploy` copies this file to
-# /opt/artmneme and starts it with an .env file holding IMAGE, APP_HOST, POSTGRES_PASSWORD and the R2 variables.
+# /opt/artmneme and starts it with an .env file holding IMAGE, APP_HOST, POSTGRES_PASSWORD, S3_BUCKET and AWS_DEFAULT_REGION.
 # Use a password of letters and digits only: it is part of the database address.
 
 services:
@@ -26,10 +26,9 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://artmneme:${POSTGRES_PASSWORD}@postgres:5432/artmneme
-      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
-      R2_BUCKET: ${R2_BUCKET}
-      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
-      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+      # Photos; access comes from the server's AWS role, so no keys are needed.
+      S3_BUCKET: ${S3_BUCKET}
+      AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}
 
   # HTTPS in front of the app, with a free Let's Encrypt certificate for APP_HOST.
   caddy:

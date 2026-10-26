@@ -1,4 +1,4 @@
-"""Photo storage (issue #6): the local folder is tested for real, R2 with botocore's Stubber (no network)."""
+"""Photo storage (issue #6): the local folder is tested for real, S3 with botocore's Stubber (no network)."""
 
 import io
 import logging
@@ -16,27 +16,22 @@ from fastapi.testclient import TestClient
 import photos
 from main import app
 
-real_r2_client = photos.r2_client
+real_s3_client = photos.s3_client
 JPEG = b"\xff\xd8\xff\xe0" + b"photo bytes" * 100
 SECRET = "super-secret-value"
 BUCKET = "test-bucket"
 KEY = "0123456789abcdef0123456789abcdef.jpg"
-R2_ENVIRONMENT = {
-    "R2_ACCOUNT_ID": "account123",
-    "R2_BUCKET": BUCKET,
-    "R2_ACCESS_KEY_ID": "access-key-id",
-    "R2_SECRET_ACCESS_KEY": SECRET,
-}
+S3_ENVIRONMENT = {"S3_BUCKET": BUCKET, "AWS_DEFAULT_REGION": "eu-central-1"}
 
 
 @pytest.fixture(autouse=True)
 def no_real_storage(monkeypatch):
-    """Whatever the machine has set, no test reaches a real folder or a real R2 account."""
-    for name in ("PHOTO_DIR", *photos.R2_VARIABLES):
+    """Whatever the machine has set, no test reaches a real folder or a real S3 bucket."""
+    for name in ("PHOTO_DIR", "S3_BUCKET"):
         monkeypatch.delenv(name, raising=False)
-    real_r2_client.cache_clear()
+    real_s3_client.cache_clear()
     yield
-    real_r2_client.cache_clear()
+    real_s3_client.cache_clear()
 
 
 @pytest.fixture
@@ -46,18 +41,18 @@ def folder(tmp_path, monkeypatch):
 
 
 @pytest.fixture
-def r2(monkeypatch):
-    """R2 with a client that answers only what the test tells the Stubber."""
-    for name, value in R2_ENVIRONMENT.items():
+def s3(monkeypatch):
+    """S3 with a client that answers only what the test tells the Stubber."""
+    for name, value in S3_ENVIRONMENT.items():
         monkeypatch.setenv(name, value)
     client = boto3.client(
         "s3",
-        region_name="auto",
+        region_name="eu-central-1",
         aws_access_key_id="x",
         aws_secret_access_key="x",
         endpoint_url="https://nowhere.invalid",
     )
-    monkeypatch.setattr(photos, "r2_client", lambda: client)
+    monkeypatch.setattr(photos, "s3_client", lambda: client)
     with Stubber(client) as stubber:
         yield stubber
         stubber.assert_no_pending_responses()
@@ -70,13 +65,11 @@ def body_of(data: bytes) -> StreamingBody:
 # Choosing the storage
 
 
-def test_missing_storage_variables_are_all_named(monkeypatch):
-    monkeypatch.setenv("R2_BUCKET", BUCKET)
+def test_missing_storage_settings_are_named():
     with pytest.raises(SystemExit) as stopped:
         photos.read(KEY)
     message = str(stopped.value)
-    assert all(name in message for name in ("R2_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY"))
-    assert "R2_BUCKET," not in message and "PHOTO_DIR" in message
+    assert "PHOTO_DIR" in message and "S3_BUCKET" in message
 
 
 def test_backend_and_health_work_with_no_storage_variables():
@@ -89,11 +82,11 @@ def test_photo_folder_is_created_when_missing(folder):
     assert folder.is_dir()
 
 
-def test_r2_address_is_built_from_the_account_id_with_a_10_second_timeout(monkeypatch):
-    for name, value in R2_ENVIRONMENT.items():
+def test_s3_client_uses_aws_s3_with_a_10_second_timeout(monkeypatch):
+    for name, value in S3_ENVIRONMENT.items():
         monkeypatch.setenv(name, value)
-    client = photos.r2_client()
-    assert client.meta.endpoint_url == "https://account123.r2.cloudflarestorage.com"
+    client = photos.s3_client()
+    assert client.meta.endpoint_url == "https://s3.eu-central-1.amazonaws.com"
     config: Config = client.meta.config
     assert (config.connect_timeout, config.read_timeout) == (10, 10)
     assert config.retries["total_max_attempts"] == 1
@@ -177,46 +170,46 @@ def test_path_outside_the_photo_folder_is_refused(folder, tmp_path, path):
     assert (tmp_path / "secret").read_bytes() == b"keep"
 
 
-def test_malformed_path_is_refused_before_r2_is_asked(r2):
+def test_malformed_path_is_refused_before_s3_is_asked(s3):
     with pytest.raises(ValueError):
         photos.read("../secret")
     with pytest.raises(ValueError):
         photos.delete("a/b.jpg")
 
 
-# R2, simulated
+# S3, simulated
 
 
-def test_r2_save_stores_one_jpeg_object_with_content_type_image_jpeg(r2):
-    r2.add_response("put_object", {}, {"Bucket": BUCKET, "Key": mock.ANY, "Body": JPEG, "ContentType": "image/jpeg"})
+def test_s3_save_stores_one_jpeg_object_with_content_type_image_jpeg(s3):
+    s3.add_response("put_object", {}, {"Bucket": BUCKET, "Key": mock.ANY, "Body": JPEG, "ContentType": "image/jpeg"})
     path = photos.save(JPEG)
     assert re.fullmatch(r"[0-9a-f]{32}\.jpg", path)
 
 
-def test_r2_read_returns_the_saved_bytes(r2):
-    r2.add_response("get_object", {"Body": body_of(JPEG)}, {"Bucket": BUCKET, "Key": KEY})
+def test_s3_read_returns_the_saved_bytes(s3):
+    s3.add_response("get_object", {"Body": body_of(JPEG)}, {"Bucket": BUCKET, "Key": KEY})
     assert b"".join(photos.read(KEY)) == JPEG
 
 
-def test_r2_read_of_a_missing_photo_says_not_found(r2):
-    r2.add_client_error("get_object", service_error_code="NoSuchKey", http_status_code=404)
+def test_s3_read_of_a_missing_photo_says_not_found(s3):
+    s3.add_client_error("get_object", service_error_code="NoSuchKey", http_status_code=404)
     with pytest.raises(photos.PhotoNotFound):
         photos.read(KEY)
 
 
-def test_r2_delete_sends_one_delete_for_the_path(r2):
-    r2.add_response("delete_object", {}, {"Bucket": BUCKET, "Key": KEY})
+def test_s3_delete_sends_one_delete_for_the_path(s3):
+    s3.add_response("delete_object", {}, {"Bucket": BUCKET, "Key": KEY})
     photos.delete(KEY)
 
 
-def test_r2_deleting_a_missing_photo_is_not_an_error(r2):
-    r2.add_client_error("delete_object", service_error_code="NoSuchKey", http_status_code=404)
+def test_s3_deleting_a_missing_photo_is_not_an_error(s3):
+    s3.add_client_error("delete_object", service_error_code="NoSuchKey", http_status_code=404)
     photos.delete(KEY)
 
 
 @pytest.mark.parametrize("failure", [EndpointConnectionError(endpoint_url="x"), ConnectTimeoutError(endpoint_url="x")])
-def test_unreachable_r2_says_storage_unavailable(monkeypatch, failure):
-    for name, value in R2_ENVIRONMENT.items():
+def test_unreachable_s3_says_storage_unavailable(monkeypatch, failure):
+    for name, value in S3_ENVIRONMENT.items():
         monkeypatch.setenv(name, value)
 
     class Unreachable:
@@ -226,14 +219,14 @@ def test_unreachable_r2_says_storage_unavailable(monkeypatch, failure):
 
             return fail
 
-    monkeypatch.setattr(photos, "r2_client", Unreachable)
+    monkeypatch.setattr(photos, "s3_client", Unreachable)
     for action in (lambda: photos.save(JPEG), lambda: photos.read(KEY), lambda: photos.delete(KEY)):
         with pytest.raises(photos.StorageUnavailable):
             action()
 
 
-def test_r2_error_answer_says_storage_unavailable(r2):
-    r2.add_client_error("get_object", service_error_code="AccessDenied", http_status_code=403)
+def test_s3_error_answer_says_storage_unavailable(s3):
+    s3.add_client_error("get_object", service_error_code="AccessDenied", http_status_code=403)
     with pytest.raises(photos.StorageUnavailable):
         photos.read(KEY)
 
@@ -260,8 +253,8 @@ def test_unreachable_storage_gives_503(monkeypatch):
 # Privacy
 
 
-def test_r2_secret_never_appears_in_an_error_or_a_log(r2, caplog):
-    r2.add_client_error(
+def test_s3_secret_never_appears_in_an_error_or_a_log(s3, caplog):
+    s3.add_client_error(
         "get_object", service_error_code="InvalidAccessKeyId", service_message=f"bad {SECRET}", http_status_code=403
     )
     with caplog.at_level(logging.DEBUG):

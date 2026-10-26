@@ -23,9 +23,8 @@ ARTWORK_FIELDS = {
 
 @pytest.fixture(autouse=True)
 def folder(tmp_path, monkeypatch):
-    """Every test saves photos into its own temporary folder; none reaches R2."""
-    for name in photos.R2_VARIABLES:
-        monkeypatch.delenv(name, raising=False)
+    """Every test saves photos into its own temporary folder; none reaches S3."""
+    monkeypatch.delenv("S3_BUCKET", raising=False)
     monkeypatch.setenv("PHOTO_DIR", str(tmp_path / "photos"))
     return tmp_path / "photos"
 

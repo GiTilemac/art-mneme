@@ -178,10 +178,10 @@ Next.js and Supabase were rejected because they weaken the separation between Fr
 ## Photo Storage
 
 ```text
-Cloudflare R2, used from day one.
+AWS S3 (changed from Cloudflare R2 by the project owner on 2026-10-26, when the app moved to AWS).
 ```
 
-Production keeps photos in a private R2 bucket. Development and tests use a local folder chosen by `PHOTO_DIR`.
+Production keeps photos in a private S3 bucket, reached with the server's AWS role (no stored keys). Development and tests use a local folder chosen by `PHOTO_DIR`.
 
 ---
 
@@ -205,7 +205,7 @@ Frontend:  served at /
 API:       served at /api
 ```
 
-Hosting (decided by the project owner on 2026-10-26): AWS, one EC2 server created with CloudFormation (`deploy/cloudformation.yaml`). It runs Docker Compose with the app container, PostgreSQL and Caddy for HTTPS (`deploy/docker-compose.prod.yaml`). Images are kept in ECR, secrets in SSM Parameter Store, and the disk is snapshotted daily. Photos stay in Cloudflare R2.
+Hosting (decided by the project owner on 2026-10-26): AWS, one EC2 server created with CloudFormation (`deploy/cloudformation.yaml`). It runs Docker Compose with the app container, PostgreSQL and Caddy for HTTPS (`deploy/docker-compose.prod.yaml`). Images are kept in ECR, the database password in SSM Parameter Store, photos in a private S3 bucket, and the disk is snapshotted daily.
 
 ---
 
