@@ -350,14 +350,16 @@ The app is at the `AppUrl` that `make deploy-stack` prints (`https://<address>.s
 2. Then `make integration` and `make e2e` against the `docker-compose.yaml` stack.
 3. Then, only on a push to `main`, the deploy: `deploy/deploy.sh` (the same as `make deploy`), followed by a check that `/api/health` on the app address answers `{"status":"ok"}`.
 
-The deploy job signs in to AWS with GitHub OIDC: no AWS keys are stored in GitHub. It runs in the GitHub environment `production`, and only a job in that environment may use the AWS role.
+The deploy job signs in to AWS with GitHub OIDC: no AWS keys are stored in GitHub. Only a workflow run for a push to `main` of this repository may use the AWS role; pull requests and other branches cannot.
 
 One-time steps:
 
 1. Create the role: `make deploy-ci-role`. It prints `DeployRoleArn`.
-2. In GitHub, open Settings > Environments, create the environment `production`, and add the variable `AWS_DEPLOY_ROLE_ARN` with that value. Optional: under "Deployment branches", allow only `main`, and add yourself as a required reviewer if you want to approve each deploy.
+2. In GitHub, open Settings > Secrets and variables > Actions > Variables, and add the repository variable `AWS_DEPLOY_ROLE_ARN_PROD` with that value.
 
-For a dev environment later: deploy a second app stack, create a second role stack with `Environment=dev`, `AppStackName=<dev stack>` and `CreateOidcProvider=false` (if it is in the same AWS account), create the GitHub environment `dev`, and add a `deploy` job for it to the workflow.
+For a dev environment later: deploy a second app stack, create a second role stack with `Branch=dev`, `AppStackName=<dev stack>` and `CreateOidcProvider=false` (if it is in the same AWS account), add the repository variable `AWS_DEPLOY_ROLE_ARN_DEV`, and add a deploy job for pushes to `dev` to the workflow.
+
+GitHub environments (with optional manual approval) are not used: for private repositories they need a paid GitHub plan.
 
 ### Deploy a new version
 

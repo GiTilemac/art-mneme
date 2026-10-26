@@ -379,7 +379,7 @@ Deployment to AWS (2026-10-26):
 
 CI/CD pipeline (2026-10-26):
 
-- At the project owner's request, Claude wrote `.github/workflows/ci-cd.yml` (backend and frontend tests in parallel, then integration and end-to-end tests against the Compose stack, then the deploy of `main` to AWS with a GitHub OIDC role and a health check) and `deploy/github-oidc.yaml` (the role, limited to the GitHub environment `production`), prepared for a later split into dev and prod. Checked with actionlint, cfn-lint and AWS's template validation.
+- At the project owner's request, Claude wrote `.github/workflows/ci-cd.yml` (backend and frontend tests in parallel, then integration and end-to-end tests against the Compose stack, then the deploy of `main` to AWS with a GitHub OIDC role and a health check) and `deploy/github-oidc.yaml` (the role), prepared for a later split into dev and prod. GitHub environments need a paid plan for private repositories, so the project owner chose on 2026-10-26 to limit the role to pushes to `main` instead, with a repository variable. Checked with actionlint, cfn-lint and AWS's template validation.
 
 Community postponed to a later version (backlog rework, 2026-10-26):
 

@@ -1,7 +1,7 @@
 # Tests on every push and pull request; on a push to main, deploys to AWS after all tests pass.
-# The deploy job runs in the GitHub environment "production" and uses its variable AWS_DEPLOY_ROLE_ARN
-# (the role from deploy/github-oidc.yaml). For a dev environment, add a job like `deploy` with
-# `environment: dev` and that environment's own role and stack. See README.md > CI/CD.
+# The deploy job uses the repository variable AWS_DEPLOY_ROLE_ARN_PROD (the role from deploy/github-oidc.yaml,
+# which trusts only pushes to main). For a dev environment, add a job like `deploy` for the dev branch,
+# with its own stack, role and variable AWS_DEPLOY_ROLE_ARN_DEV. See README.md > CI/CD.
 name: CI/CD
 
 on:
@@ -73,7 +73,6 @@ jobs:
     needs: stack-tests
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
-    environment: production
     # One deploy at a time; a newer push waits instead of running alongside.
     concurrency:
       group: deploy-production
@@ -87,7 +86,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
           aws-region: ${{ env.AWS_REGION }}
       - run: deploy/deploy.sh
       - name: Check that the deployed app is healthy

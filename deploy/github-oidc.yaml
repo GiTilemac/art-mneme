@@ -1,13 +1,13 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   The AWS role that GitHub Actions uses to deploy one ArtMneme environment (no stored AWS keys; GitHub OIDC).
-  One stack per environment, e.g. `artmneme-github-production`. See README.md > CI/CD.
+  One stack per environment, e.g. `artmneme-github-production` for the branch main. See README.md > CI/CD.
 
 Parameters:
-  Environment:
+  Branch:
     Type: String
-    Default: production
-    Description: "The GitHub environment that may use this role (a job with `environment: <this>`)."
+    Default: main
+    Description: Only a workflow run for a push to this branch may use the role (GitHub environments need a paid plan for private repositories).
   AppStackName:
     Type: String
     Default: artmneme
@@ -39,7 +39,7 @@ Resources:
   DeployRole:
     Type: AWS::IAM::Role
     Properties:
-      Description: !Sub GitHub Actions deploys ${AppStackName} from the ${Environment} environment
+      Description: !Sub GitHub Actions deploys ${AppStackName} from the branch ${Branch}
       MaxSessionDuration: 3600
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -51,8 +51,8 @@ Resources:
             Condition:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
-                # Only a job of this repository that runs in this GitHub environment.
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:environment:${Environment}
+                # Only a workflow run of this repository for this branch (not pull requests, not other branches).
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:ref:refs/heads/${Branch}
       Policies:
         - PolicyName: deploy
           PolicyDocument:
@@ -91,5 +91,5 @@ Resources:
 
 Outputs:
   DeployRoleArn:
-    Description: Put this in the GitHub environment's variable AWS_DEPLOY_ROLE_ARN.
+    Description: Put this in the GitHub repository variable AWS_DEPLOY_ROLE_ARN_PROD (or ..._DEV for a dev stack).
     Value: !GetAtt DeployRole.Arn

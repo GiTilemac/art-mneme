@@ -21,7 +21,7 @@ When a new service is added (for example Grafana Cloud for observability), add a
 | Create or update | `README.md` > Deploy to AWS (`make deploy-stack`, then `make deploy`). |
 | Access to the server | `aws ssm start-session --target <InstanceId>` (Session Manager, no SSH). |
 | Remove | Delete the stack `artmneme`. The photo bucket is kept on purpose and must be emptied and deleted by hand. The disk snapshots are deleted with their policy; delete any left ones by hand. |
-| GitHub Actions access | Stack `artmneme-github-production` (`deploy/github-oidc.yaml`): the GitHub OIDC provider and the role that the `deploy` job uses. Only the GitHub environment `production` of `GiTilemac/art-mneme` may use it; it may only push to the ECR repository, read the app stack and run commands on that stack's server. |
+| GitHub Actions access | Stack `artmneme-github-production` (`deploy/github-oidc.yaml`): the GitHub OIDC provider and the role that the `deploy` job uses. Only workflow runs for pushes to `main` of `GiTilemac/art-mneme` may use it; it may only push to the ECR repository, read the app stack and run commands on that stack's server. |
 
 ### Third parties used by the AWS setup (no account)
 
@@ -38,6 +38,6 @@ When a new service is added (for example Grafana Cloud for observability), add a
 |---|---|
 | Purpose | The repository `GiTilemac/art-mneme`, its issues, and CI/CD with GitHub Actions (`.github/workflows/ci-cd.yml`). Lovable also pushes to this repository. |
 | Account | The project owner's GitHub account. |
-| Secrets | None. The environment `production` has the variable `AWS_DEPLOY_ROLE_ARN` (not secret); AWS access is through OIDC. |
-| Cost and limits | Free for this repository within GitHub's included Actions minutes. |
+| Secrets | None. The repository variable `AWS_DEPLOY_ROLE_ARN_PROD` holds the role's address (not secret); AWS access is through OIDC. |
+| Cost and limits | Free plan. The repository is private: about 2,000 Actions minutes a month are included, and environments are not available. |
 | Set up | `README.md` > CI/CD. |
