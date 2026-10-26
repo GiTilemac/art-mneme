@@ -15,7 +15,7 @@
             {
               "refId": "A",
               "relativeTimeRange": {
-                "from": 600,
+                "from": 900,
                 "to": 0
               },
               "datasourceUid": "prometheus",
@@ -23,7 +23,7 @@
                 "refId": "A",
                 "instant": true,
                 "range": false,
-                "expr": "sum by (job, deployment_environment_name, service_version) (artmneme_artworks_creation_failures_total{reason=~\"storage|error\"} - (artmneme_artworks_creation_failures_total{reason=~\"storage|error\"} offset 10m or artmneme_artworks_creation_failures_total{reason=~\"storage|error\"} * 0))"
+                "expr": "sum by (job, deployment_environment_name, service_version) (artmneme_artworks_creation_failures_total{reason=~\"storage|error\"} - (artmneme_artworks_creation_failures_total{reason=~\"storage|error\"} offset 15m or artmneme_artworks_creation_failures_total{reason=~\"storage|error\"} * 0))"
               }
             },
             {
@@ -48,7 +48,7 @@
                     "evaluator": {
                       "type": "gt",
                       "params": [
-                        2.5
+                        0.5
                       ]
                     }
                   }
@@ -58,7 +58,7 @@
           ],
           "noDataState": "OK",
           "execErrState": "Error",
-          "for": "5m",
+          "for": "1m",
           "labels": {
             "severity": "critical",
             "owner": "project owner",
@@ -66,8 +66,8 @@
           },
           "annotations": {
             "summary": "Artwork creations are failing in {{ $labels.deployment_environment_name }} ({{ $labels.service_version }})",
-            "description": "{{ $values.B.Value | printf \"%.0f\" }} artwork creations failed on the server side (photo storage unreachable or unexpected errors) in the last 10 minutes: users cannot save artworks.\nService: {{ $labels.job }}\nEnvironment: {{ $labels.deployment_environment_name }}\nVersion: {{ $labels.service_version }}\nOwner: project owner",
-            "runbook": "1. Open the dashboard below and check whether the failures are 'storage' or 'error'. 2. Check https://<app>/api/health. 3. storage: check the S3 bucket and the server role (docs/external-services.md > AWS). 4. error: read the app logs on the server (aws ssm start-session, then docker compose logs app in /opt/artmneme). 5. If a new version caused it, roll back: 'Deploy to prod' with the previous image tag.",
+            "description": "{{ $values.B.Value | printf \"%.0f\" }} artwork creations failed on the server side (photo storage unreachable or unexpected errors) in the last 15 minutes: users cannot save artworks.\nService: {{ $labels.job }}\nEnvironment: {{ $labels.deployment_environment_name }}\nVersion: {{ $labels.service_version }}\nOwner: project owner",
+            "runbook": "0. Check whether the fault switch is on (ARTMNEME_FAULT; `make fault-off` on prod). 1. Open the dashboard below and check whether the failures are 'storage' or 'error'. 2. Check https://<app>/api/health. 3. storage: check the S3 bucket and the server role (docs/external-services.md > AWS). 4. error: read the app logs on the server (aws ssm start-session, then docker compose logs app in /opt/artmneme). 5. If a new version caused it, roll back: 'Deploy to prod' with the previous image tag.",
             "dashboard_url": "http://localhost:3000/d/artmneme-app/?var-environment={{ $labels.deployment_environment_name }}&var-version={{ $labels.service_version }}",
             "__dashboardUid__": "artmneme-app",
             "__panelId__": "8"
