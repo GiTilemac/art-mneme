@@ -880,3 +880,49 @@ def list_artworks(request: Request, user: dict = Depends(current_user), connecti
         "page": page,
         "page_size": PAGE_SIZE,
     }
+
+
+# Column of the starting artwork that related artworks must share. Fixed here, never taken from the request.
+EXPLORED_BY = {"artist": "artist_id", "subject": "subject_id", "movement": "movement_id", "museum": "museum"}
+
+
+def flag(params, name: str, default: bool) -> bool:
+    value = params.get(name)
+    if value is None:
+        return default
+    if value not in ("true", "false"):
+        raise HTTPException(status_code=422, detail=f"{name} must be true or false.")
+    return value == "true"
+
+
+@app.get("/api/artworks/{artwork_id}/related")
+def related_artworks(
+    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+):
+    """The user's own artworks sharing one field with this one, grouped by state, at most 50 each, newest first."""
+    artwork = own_artwork(connection, user, artwork_id)
+    params = request.query_params
+    by = params.get("by")
+    if by == "tags":
+        raise HTTPException(status_code=422, detail="Exploring by tags is not available yet.")
+    if by not in EXPLORED_BY:
+        raise HTTPException(status_code=422, detail="Choose artist, subject, movement or museum.")
+    sources = {"collection": flag(params, "include_collection", True), "watchlist": flag(params, "include_watchlist", False)}
+    column = EXPLORED_BY[by]
+    value = getattr(artwork, column)
+    result = {"collection": [], "watchlist": []}
+    # No value matches nothing, not the other artworks without one.
+    if value is None or value == "":
+        return result
+    same = "lower(museum) = lower(:value)" if by == "museum" else f"{column} = :value"
+    for source, included in sources.items():
+        if included:
+            ids = connection.execute(
+                text(
+                    f"SELECT id FROM artworks WHERE user_id = :user_id AND collection_state = :state AND id != :id "
+                    f"AND {same} ORDER BY created_at DESC, id DESC LIMIT :limit"
+                ),
+                {"user_id": user["id"], "state": source.upper(), "id": artwork.id, "value": value, "limit": PAGE_SIZE},
+            ).scalars().all()
+            result[source] = artwork_responses(connection, list(ids)) if ids else []
+    return result
