@@ -612,6 +612,25 @@ def text_of(part) -> str | None:
 async def create_artwork_endpoint(
     request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")
 ):
+    """Counts each creation and each failed one (after login) for the application metrics."""
+    try:
+        artwork = await receive_artwork(request, user, connection)
+    except HTTPException as error:
+        telemetry.artwork_creation_failures.add(1, {"reason": "invalid" if error.status_code == 422 else "error"})
+        raise
+    except photos.StorageUnavailable:
+        telemetry.artwork_creation_failures.add(1, {"reason": "storage"})
+        raise
+    except Exception:
+        telemetry.artwork_creation_failures.add(1, {"reason": "error"})
+        raise
+    telemetry.artworks_created.add(1, {"state": artwork["state"]})
+    if artwork["has_photo"]:
+        telemetry.photos_uploaded.add(1, {"kind": "create"})
+    return artwork
+
+
+async def receive_artwork(request: Request, user: dict, connection: Connection) -> dict:
     if not request.headers.get("content-type", "").startswith("multipart/form-data"):
         raise HTTPException(status_code=422, detail="The request must be multipart/form-data.")
     try:
@@ -759,6 +778,8 @@ def replace_photo(connection: Connection, artwork, photo: bytes) -> dict:
             photos.delete(artwork.artwork_photo_path)
         except photos.StorageUnavailable:
             pass  # The old file stays behind; there is no clean-up in v1.
+    kind = "watchlist_conversion" if artwork.collection_state == "WATCHLIST" else "replace"
+    telemetry.photos_uploaded.add(1, {"kind": kind})
     return response
 
 
@@ -915,6 +936,7 @@ def related_artworks(
     if by not in EXPLORED_BY:
         raise HTTPException(status_code=422, detail="Choose artist, subject, movement or museum.")
     sources = {"collection": flag(params, "include_collection", True), "watchlist": flag(params, "include_watchlist", False)}
+    telemetry.relationship_explorations.add(1, {"by": by})
     column = EXPLORED_BY[by]
     value = getattr(artwork, column)
     result = {"collection": [], "watchlist": []}
