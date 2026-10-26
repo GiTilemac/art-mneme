@@ -377,6 +377,10 @@ Deployment to AWS (2026-10-26):
 - Claude wrote `deploy/cloudformation.yaml`, `deploy/docker-compose.prod.yaml` (with Caddy for HTTPS), `deploy/Caddyfile`, `deploy/deploy.sh` and the `make deploy-stack` and `make deploy` commands, and checked the template with cfn-lint and AWS's template validation. Creating the AWS resources is left to the project owner.
 - When the project owner pointed out that photos still went to Cloudflare R2, Claude proposed AWS S3; the project owner decided on 2026-10-26 to use S3. Claude changed `backend/photos.py` and its tests from R2 to S3 (access through the server's AWS role, no stored keys) and added the private bucket to the template.
 
+CI/CD pipeline (2026-10-26):
+
+- At the project owner's request, Claude wrote `.github/workflows/ci-cd.yml` (backend and frontend tests in parallel, then integration and end-to-end tests against the Compose stack, then the deploy of `main` to AWS with a GitHub OIDC role and a health check) and `deploy/github-oidc.yaml` (the role, limited to the GitHub environment `production`), prepared for a later split into dev and prod. Checked with actionlint, cfn-lint and AWS's template validation.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.

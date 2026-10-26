@@ -7,7 +7,7 @@ TEST_DATABASE_URL ?= postgresql+psycopg://artmneme:artmneme@localhost:$(DB_PORT)
 PHOTO_DIR ?= $(CURDIR)/backend/photos
 export DATABASE_URL TEST_DATABASE_URL PHOTO_DIR
 
-.PHONY: run install migrate test frontend integration deploy-stack deploy e2e
+.PHONY: run install migrate test frontend integration deploy-stack deploy e2e deploy-ci-role
 
 # Install, bring the schema up to date, and start the API at http://localhost:8000/api
 run: install migrate
@@ -52,3 +52,8 @@ deploy-stack:
 # Build this version, push it to ECR and start it on the server.
 deploy:
 	deploy/deploy.sh
+
+# Create or update the AWS role that GitHub Actions deploys with (deploy/github-oidc.yaml), for the production environment.
+deploy-ci-role:
+	aws cloudformation deploy --template-file deploy/github-oidc.yaml --stack-name artmneme-github-production --capabilities CAPABILITY_IAM
+	aws cloudformation describe-stacks --stack-name artmneme-github-production --query "Stacks[0].Outputs" --output table

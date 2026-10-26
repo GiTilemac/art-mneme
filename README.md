@@ -342,6 +342,23 @@ make deploy         # build this version, push it and start it on the server
 
 The app is at the `AppUrl` that `make deploy-stack` prints (`https://<address>.sslip.io`). To open a shell on the server, use `aws ssm start-session --target <InstanceId>`; no SSH key is needed.
 
+### CI/CD
+
+`.github/workflows/ci-cd.yml` runs on every push and pull request:
+
+1. The backend tests and the frontend tests, in parallel.
+2. Then `make integration` and `make e2e` against the `docker-compose.yaml` stack.
+3. Then, only on a push to `main`, the deploy: `deploy/deploy.sh` (the same as `make deploy`), followed by a check that `/api/health` on the app address answers `{"status":"ok"}`.
+
+The deploy job signs in to AWS with GitHub OIDC: no AWS keys are stored in GitHub. It runs in the GitHub environment `production`, and only a job in that environment may use the AWS role.
+
+One-time steps:
+
+1. Create the role: `make deploy-ci-role`. It prints `DeployRoleArn`.
+2. In GitHub, open Settings > Environments, create the environment `production`, and add the variable `AWS_DEPLOY_ROLE_ARN` with that value. Optional: under "Deployment branches", allow only `main`, and add yourself as a required reviewer if you want to approve each deploy.
+
+For a dev environment later: deploy a second app stack, create a second role stack with `Environment=dev`, `AppStackName=<dev stack>` and `CreateOidcProvider=false` (if it is in the same AWS account), create the GitHub environment `dev`, and add a `deploy` job for it to the workflow.
+
 ### Deploy a new version
 
 Run these steps from the repository root, in a terminal where `aws sts get-caller-identity` shows the ArtMneme account (for example after `export AWS_PROFILE=artmneme-deploy`).

@@ -1,0 +1,103 @@
+# Tests on every push and pull request; on a push to main, deploys to AWS after all tests pass.
+# The deploy job runs in the GitHub environment "production" and uses its variable AWS_DEPLOY_ROLE_ARN
+# (the role from deploy/github-oidc.yaml). For a dev environment, add a job like `deploy` with
+# `environment: dev` and that environment's own role and stack. See README.md > CI/CD.
+name: CI/CD
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-central-1
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: artmneme
+          POSTGRES_PASSWORD: artmneme
+          POSTGRES_DB: artmneme_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U artmneme -d artmneme_test"
+          --health-interval 2s --health-timeout 5s --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgresql+psycopg://artmneme:artmneme@localhost:5432/artmneme_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.0"
+      - run: uv sync --frozen
+        working-directory: backend
+      - run: uv run pytest -q
+        working-directory: backend
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: "1.3.0"
+      - run: bun install --frozen-lockfile
+        working-directory: frontend
+      - run: npm test
+        working-directory: frontend
+
+  # The docker-compose.yaml stack, tested over HTTP and in a real browser.
+  stack-tests:
+    needs: [backend-tests, frontend-tests]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.8.0"
+      - run: uv sync --frozen && uv run playwright install --with-deps chromium
+        working-directory: backend
+      - run: make integration
+      - run: make e2e
+
+  deploy:
+    needs: stack-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: production
+    # One deploy at a time; a newer push waits instead of running alongside.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      STACK: artmneme
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - run: deploy/deploy.sh
+      - name: Check that the deployed app is healthy
+        run: |
+          url=$(aws cloudformation describe-stacks --stack-name "$STACK" \
+            --query "Stacks[0].Outputs[?OutputKey=='AppUrl'].OutputValue" --output text)
+          for _ in $(seq 1 30); do
+            if [ "$(curl -fsS -m 10 "$url/api/health" || true)" = '{"status":"ok"}' ]; then
+              echo "Healthy: $url"; exit 0
+            fi
+            sleep 5
+          done
+          echo "No healthy answer from $url/api/health after 150 seconds"; exit 1

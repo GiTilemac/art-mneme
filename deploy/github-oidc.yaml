@@ -1,0 +1,95 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  The AWS role that GitHub Actions uses to deploy one ArtMneme environment (no stored AWS keys; GitHub OIDC).
+  One stack per environment, e.g. `artmneme-github-production`. See README.md > CI/CD.
+
+Parameters:
+  Environment:
+    Type: String
+    Default: production
+    Description: "The GitHub environment that may use this role (a job with `environment: <this>`)."
+  AppStackName:
+    Type: String
+    Default: artmneme
+    Description: The app stack (deploy/cloudformation.yaml) that this role deploys to.
+  RepositoryName:
+    Type: String
+    Default: artmneme
+    Description: The app stack's ECR repository.
+  GitHubRepository:
+    Type: String
+    Default: GiTilemac/art-mneme
+  CreateOidcProvider:
+    Type: String
+    AllowedValues: ["true", "false"]
+    Default: "true"
+    Description: The GitHub OIDC provider exists once per AWS account; set "false" for a second environment in the same account.
+
+Conditions:
+  NewProvider: !Equals [!Ref CreateOidcProvider, "true"]
+
+Resources:
+  GitHubOidcProvider:
+    Type: AWS::IAM::OIDCProvider
+    Condition: NewProvider
+    Properties:
+      Url: https://token.actions.githubusercontent.com
+      ClientIdList: [sts.amazonaws.com]
+
+  DeployRole:
+    Type: AWS::IAM::Role
+    Properties:
+      Description: !Sub GitHub Actions deploys ${AppStackName} from the ${Environment} environment
+      MaxSessionDuration: 3600
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Sub arn:${AWS::Partition}:iam::${AWS::AccountId}:oidc-provider/token.actions.githubusercontent.com
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                # Only a job of this repository that runs in this GitHub environment.
+                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:environment:${Environment}
+      Policies:
+        - PolicyName: deploy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              # deploy/deploy.sh reads the stack outputs ...
+              - Effect: Allow
+                Action: cloudformation:DescribeStacks
+                Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppStackName}/*
+              # ... pushes the image ...
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action:
+                  - ecr:BatchCheckLayerAvailability
+                  - ecr:BatchGetImage
+                  - ecr:CompleteLayerUpload
+                  - ecr:InitiateLayerUpload
+                  - ecr:PutImage
+                  - ecr:UploadLayerPart
+                Resource: !Sub arn:${AWS::Partition}:ecr:${AWS::Region}:${AWS::AccountId}:repository/${RepositoryName}
+              # ... and starts it on that stack's server only.
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource: !Sub arn:${AWS::Partition}:ec2:${AWS::Region}:${AWS::AccountId}:instance/*
+                Condition:
+                  StringEquals:
+                    ssm:resourceTag/aws:cloudformation:stack-name: !Ref AppStackName
+              - Effect: Allow
+                Action: ssm:SendCommand
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}::document/AWS-RunShellScript
+              - Effect: Allow
+                Action: ssm:GetCommandInvocation
+                Resource: "*"
+
+Outputs:
+  DeployRoleArn:
+    Description: Put this in the GitHub environment's variable AWS_DEPLOY_ROLE_ARN.
+    Value: !GetAtt DeployRole.Arn
