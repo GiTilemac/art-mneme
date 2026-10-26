@@ -1,7 +1,7 @@
 # Shortcuts for running the backend locally. See README.md for the setup they rely on.
-# The database port defaults to 5432; override it once with `export DB_PORT=5433` or per call: `make run DB_PORT=5433`.
+# The database port defaults to 5433 (the local server); override it per call, e.g. `make run DB_PORT=5432`.
 
-DB_PORT ?= 5432
+DB_PORT ?= 5433
 DATABASE_URL ?= postgresql+psycopg://artmneme:artmneme@localhost:$(DB_PORT)/artmneme
 TEST_DATABASE_URL ?= postgresql+psycopg://artmneme:artmneme@localhost:$(DB_PORT)/artmneme_test
 PHOTO_DIR ?= $(CURDIR)/backend/photos
