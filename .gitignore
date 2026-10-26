@@ -3,3 +3,4 @@ frontend/.env
 __pycache__/
 .pytest_cache/
 backend/photos/
+on-call-engineer/logs/

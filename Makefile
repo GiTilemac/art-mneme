@@ -12,7 +12,7 @@ export DATABASE_URL TEST_DATABASE_URL PHOTO_DIR
 TELEMETRY ?=
 SSM_PROFILE ?= artmneme-deploy
 
-.PHONY: run install migrate test frontend integration deploy-stack build deploy e2e deploy-ci-role observability observability-down
+.PHONY: run install migrate test frontend integration deploy-stack build deploy e2e deploy-ci-role observability observability-down grafana-cloud on-call
 
 # Install, bring the schema up to date, and start the API at http://localhost:8000/api.
 # With telemetry: `make run TELEMETRY=local` or `make run TELEMETRY=cloud` (environment "dev").
@@ -85,3 +85,12 @@ observability:
 
 observability-down:
 	docker compose -f observability/docker-compose.yaml down
+
+# Upload the dashboard and the alert rule (observability/grafana/) to Grafana Cloud; see README.md > Telemetry.
+grafana-cloud:
+	python3 observability/grafana_cloud.py
+
+# Local on-call engineer (on-call-engineer/): polls Grafana every minute and hands each new alert to Claude Code.
+# ALERTS=cloud (default; Grafana Cloud, address and token from SSM) or ALERTS=local (local Grafana).
+on-call:
+	ALERTS=$(or $(ALERTS),cloud) python3 on-call-engineer/on_call.py
