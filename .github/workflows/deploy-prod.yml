@@ -30,7 +30,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0
       - name: Choose the commit and check that CI passed for it
@@ -45,7 +45,7 @@ jobs:
           [ "$result" = success ] || { echo "CI has not passed for $sha (result: ${result:-no run})"; exit 1; }
           git checkout --quiet "$sha"
           echo "Deploying $sha"
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
           aws-region: ${{ env.AWS_REGION }}
