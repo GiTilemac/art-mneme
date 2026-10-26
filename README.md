@@ -1,5 +1,7 @@
 # ArtMneme
 
+**Reviewers:** start with [REVIEW.md](REVIEW.md): live app, one-command run and test, and where each criterion is shown.
+
 ArtMneme is a personal artwork collection and relationship exploration platform.
 
 Users collect artworks they have encountered, enrich them with metadata, record observations, and explore relationships between artworks across their collection and watchlist. Community discovery comes in a later version.
