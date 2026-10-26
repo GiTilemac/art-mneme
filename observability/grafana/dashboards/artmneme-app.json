@@ -16,12 +16,23 @@
   "templating": {
     "list": [
       {
+        "name": "datasource",
+        "label": "Data source",
+        "type": "datasource",
+        "query": "prometheus",
+        "refresh": 1,
+        "current": {},
+        "hide": 0,
+        "includeAll": false,
+        "multi": false
+      },
+      {
         "name": "environment",
         "label": "Environment",
         "type": "query",
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "${datasource}"
         },
         "query": {
           "query": "label_values(artmneme_users_active, deployment_environment_name)",
@@ -49,7 +60,7 @@
         "type": "query",
         "datasource": {
           "type": "prometheus",
-          "uid": "prometheus"
+          "uid": "${datasource}"
         },
         "query": {
           "query": "label_values(artmneme_users_active{deployment_environment_name=~\"$environment\"}, service_version)",
@@ -81,7 +92,7 @@
       "description": "Artworks created in the selected time range.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 4,
@@ -94,7 +105,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "sum(increase(artmneme_artworks_created_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__range])) or vector(0)",
           "instant": true
@@ -138,7 +149,7 @@
       "description": "Failed artwork creations (invalid input, storage, errors) in the time range.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 4,
@@ -151,7 +162,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "sum(increase(artmneme_artworks_creation_failures_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__range])) or vector(0)",
           "instant": true
@@ -195,7 +206,7 @@
       "description": "Failures / (creations + failures) in the time range. The primary alert in docs/observability.md.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 4,
@@ -208,7 +219,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "(sum(increase(artmneme_artworks_creation_failures_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__range])) or vector(0)) / clamp_min((sum(increase(artmneme_artworks_created_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__range])) or vector(0)) + (sum(increase(artmneme_artworks_creation_failures_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__range])) or vector(0)), 1)",
           "instant": true
@@ -252,7 +263,7 @@
       "description": "Artwork photos stored: at creation, replacements and watchlist conversions.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 4,
@@ -265,7 +276,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "sum(increase(artmneme_photos_uploaded_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__range])) or vector(0)",
           "instant": true
@@ -309,7 +320,7 @@
       "description": "Explore requests in the time range.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 4,
@@ -322,7 +333,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "sum(increase(artmneme_relationship_explorations_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__range])) or vector(0)",
           "instant": true
@@ -366,7 +377,7 @@
       "description": "Users with a request in the last 15 minutes (latest value).",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 4,
@@ -379,7 +390,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "max(artmneme_users_active{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}) or vector(0)",
           "instant": true
@@ -423,7 +434,7 @@
       "description": "Per interval, split by COLLECTION and WATCHLIST.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 8,
@@ -436,7 +447,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "sum by (state) (increase(artmneme_artworks_created_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__interval]))",
           "legendFormat": "{{state}}"
@@ -514,7 +525,7 @@
       "description": "invalid = 422, storage = 503 (photo storage unreachable), error = 500.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 8,
@@ -527,7 +538,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "sum by (reason) (increase(artmneme_artworks_creation_failures_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__interval]))",
           "legendFormat": "{{reason}}"
@@ -620,7 +631,7 @@
       "description": "create, replace, or watchlist_conversion (a watchlist artwork moved into the collection).",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 8,
@@ -633,7 +644,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "sum by (kind) (increase(artmneme_photos_uploaded_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__interval]))",
           "legendFormat": "{{kind}}"
@@ -726,7 +737,7 @@
       "description": "Same artist, subject, movement or museum.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 8,
@@ -739,7 +750,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "sum by (by) (increase(artmneme_relationship_explorations_total{deployment_environment_name=~\"$environment\", service_version=~\"$version\"}[$__interval]))",
           "legendFormat": "{{by}}"
@@ -847,7 +858,7 @@
       "description": "Users with a request in the last 15 minutes.",
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "${datasource}"
       },
       "gridPos": {
         "h": 8,
@@ -860,7 +871,7 @@
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "${datasource}"
           },
           "expr": "max(artmneme_users_active{deployment_environment_name=~\"$environment\", service_version=~\"$version\"})",
           "legendFormat": "active users"

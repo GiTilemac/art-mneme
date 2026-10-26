@@ -26,8 +26,11 @@ services:
         condition: service_healthy
     environment:
       DATABASE_URL: postgresql+psycopg://artmneme:${POSTGRES_PASSWORD}@postgres:5432/artmneme
-      # Telemetry: the environment name (the version is in the image). Set OTEL_EXPORTER_OTLP_ENDPOINT to send it.
+      # Telemetry: the environment name (the version is in the image). Endpoint and token come from SSM
+      # (/artmneme/otel-exporter-otlp-endpoint and -headers); without them nothing is sent.
       DEPLOYMENT_ENVIRONMENT: prod
+      OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+      OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
       # Photos; access comes from the server's AWS role, so no keys are needed.
       S3_BUCKET: ${S3_BUCKET}
       AWS_DEFAULT_REGION: ${AWS_DEFAULT_REGION}

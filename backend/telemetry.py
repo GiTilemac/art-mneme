@@ -2,7 +2,7 @@
 below, sent with OTLP over HTTP.
 
 Every span and metric carries service.name, service.version (APP_VERSION: the image tag, set at build time)
-and deployment.environment.name (DEPLOYMENT_ENVIRONMENT; "local" when not set). Nothing is sent unless
+and deployment.environment.name (DEPLOYMENT_ENVIRONMENT; "dev" when not set, i.e. on a developer's computer). Nothing is sent unless
 OTEL_EXPORTER_OTLP_ENDPOINT is set, e.g. http://localhost:4318 for a local OpenTelemetry Collector.
 """
 
@@ -58,7 +58,7 @@ def resource() -> Resource:
         {
             "service.name": SERVICE_NAME,
             "service.version": os.environ.get("APP_VERSION", "unknown"),
-            "deployment.environment.name": os.environ.get("DEPLOYMENT_ENVIRONMENT", "local"),
+            "deployment.environment.name": os.environ.get("DEPLOYMENT_ENVIRONMENT", "dev"),
         }
     )
 

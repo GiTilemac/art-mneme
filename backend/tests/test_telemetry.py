@@ -35,13 +35,13 @@ def test_environment_and_version_come_from_the_deployment(monkeypatch):
     assert (attributes["service.version"], attributes["deployment.environment.name"]) == ("20261026-155049-1ae1c7e", "prod")
 
 
-def test_without_settings_the_version_is_unknown_and_the_environment_local(monkeypatch):
+def test_without_settings_the_version_is_unknown_and_the_environment_dev(monkeypatch):
     monkeypatch.delenv("APP_VERSION", raising=False)
     monkeypatch.delenv("DEPLOYMENT_ENVIRONMENT", raising=False)
 
     attributes = telemetry.resource().attributes
 
-    assert (attributes["service.version"], attributes["deployment.environment.name"]) == ("unknown", "local")
+    assert (attributes["service.version"], attributes["deployment.environment.name"]) == ("unknown", "dev")
 
 
 def test_nothing_is_sent_without_an_otlp_endpoint(monkeypatch):
