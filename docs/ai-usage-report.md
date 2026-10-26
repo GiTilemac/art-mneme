@@ -356,6 +356,11 @@ backend/
 openapi.yaml
 ```
 
+Frontend brief for Lovable (GitHub issue #11, 2026-10-26):
+
+- The project owner decided on 2026-10-26 that the frontend keeps its 30 MB check on the original photo, and that #11 is done in Lovable from a brief that stands on its own, because Lovable may not see the rest of the repository.
+- Claude rewrote GitHub issue #11 as that brief: how the frontend talks to the backend, every endpoint it uses with its data and messages, the screens to connect, and what stays hidden in v1.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
