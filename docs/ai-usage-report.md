@@ -361,6 +361,16 @@ Frontend brief for Lovable (GitHub issue #11, 2026-10-26):
 - The project owner decided on 2026-10-26 that the frontend keeps its 30 MB check on the original photo, and that #11 is done in Lovable from a brief that stands on its own, because Lovable may not see the rest of the repository.
 - Claude rewrote GitHub issue #11 as that brief: how the frontend talks to the backend, every endpoint it uses with its data and messages, the screens to connect, and what stays hidden in v1.
 
+Frontend connected to the real backend (GitHub issue #11, 2026-10-26):
+
+- Lovable ran out of credits, so the project owner asked for #11 to be done here with Sonnet subagents. A Sonnet developer agent built it from the #11 brief: a real backend client (`frontend/src/services/http.ts`) replacing the mock in the app, a BC box for each year, the backend's date display and photo address, and the v1-hidden features removed (duplicate check, detail photos, discoverability, community, tag exploration). A Sonnet QA agent checked every criterion: the frontend tests and type check pass, the client matches `openapi.yaml`, and a smoke test against the real backend through the dev proxy passed. Claude (orchestrator) fixed two leftovers QA found (a landing text mentioning detail photos, a stale comment).
+
+Recorded in:
+
+```text
+frontend/
+```
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
