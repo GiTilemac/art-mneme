@@ -7,10 +7,27 @@ TEST_DATABASE_URL ?= postgresql+psycopg://artmneme:artmneme@localhost:$(DB_PORT)
 PHOTO_DIR ?= $(CURDIR)/backend/photos
 export DATABASE_URL TEST_DATABASE_URL PHOTO_DIR
 
+# Telemetry for `make run`: empty = off, local = the local stack (`make observability`),
+# cloud = Grafana Cloud, with endpoint and token read from SSM through the AWS profile below (never stored on disk).
+TELEMETRY ?=
+SSM_PROFILE ?= artmneme-deploy
+
 .PHONY: run install migrate test frontend integration deploy-stack build deploy e2e deploy-ci-role observability observability-down
 
-# Install, bring the schema up to date, and start the API at http://localhost:8000/api
+# Install, bring the schema up to date, and start the API at http://localhost:8000/api.
+# With telemetry: `make run TELEMETRY=local` or `make run TELEMETRY=cloud` (environment "dev").
 run: install migrate
+	@case "$(TELEMETRY)" in \
+	  "") echo "Telemetry: off" ;; \
+	  local) export OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318; echo "Telemetry: local stack" ;; \
+	  cloud) endpoint=$$(aws ssm get-parameter --profile $(SSM_PROFILE) --with-decryption \
+	           --name /artmneme/otel-exporter-otlp-endpoint --query Parameter.Value --output text) || exit 1; \
+	         headers=$$(aws ssm get-parameter --profile $(SSM_PROFILE) --with-decryption \
+	           --name /artmneme/otel-exporter-otlp-headers --query Parameter.Value --output text) || exit 1; \
+	         export OTEL_EXPORTER_OTLP_ENDPOINT="$$endpoint" OTEL_EXPORTER_OTLP_HEADERS="$$headers"; \
+	         echo "Telemetry: Grafana Cloud ($$endpoint)" ;; \
+	  *) echo "TELEMETRY must be empty, local or cloud."; exit 1 ;; \
+	esac; \
 	cd backend && uv run uvicorn main:app --port 8000
 
 install:

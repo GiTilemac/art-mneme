@@ -265,12 +265,7 @@ aws ssm put-parameter --type SecureString --name /artmneme/otel-exporter-otlp-en
 aws ssm put-parameter --type SecureString --name /artmneme/otel-exporter-otlp-headers --value 'Authorization=Basic%20<base64>'
 ```
 
-4. For dev, set the same two values before `make run` (keep them out of the repository, e.g. in `~/.bashrc`):
-
-```bash
-export OTEL_EXPORTER_OTLP_ENDPOINT='<OTLP endpoint>'
-export OTEL_EXPORTER_OTLP_HEADERS='Authorization=Basic%20<base64>'
-```
+4. For dev, run `make run TELEMETRY=cloud`. It reads both values from SSM with the AWS profile `artmneme-deploy` (another one: `SSM_PROFILE=<profile>`) and starts the backend, which sends as environment `dev`. Nothing is stored on your computer. Plain `make run` sends nothing.
 
 5. In Grafana Cloud, import `observability/grafana/dashboards/artmneme-app.json` (Dashboards > New > Import) and choose the Grafana Cloud Prometheus data source in its "Data source" filter.
 
@@ -281,7 +276,7 @@ For working offline, the same stack can also run on your computer:
 `observability/` is a separate Docker Compose project: an OpenTelemetry Collector, Prometheus (metrics), Loki (logs), Tempo (traces) and Grafana, with the three data sources set up. All ports are open only on this computer.
 
 1. Run `make observability`.
-2. Start the backend with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 make run`.
+2. Start the backend with `make run TELEMETRY=local`.
 3. Open Grafana at http://localhost:3000 (no login locally). Traces are under Explore > Tempo; metrics under Explore > Prometheus, e.g. `http_server_duration_milliseconds_count`, with the labels `service_version` and `deployment_environment_name`.
 
 The dashboard "ArtMneme application metrics" (folder ArtMneme) shows the application metrics as totals for the chosen time range and over time, with filters for Environment and Version at the top. It is loaded from `observability/grafana/dashboards/artmneme-app.json`; change it there, not in Grafana.
