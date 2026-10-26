@@ -15,5 +15,7 @@ export default defineConfig({
     // Redirect TanStack Start's bundled server entry to src/server.ts (our SSR error wrapper).
     // nitro/vite builds from this
     server: { entry: "server" },
+    // Built as static files the Python backend serves: one HTML shell, the app renders in the browser.
+    spa: { enabled: true },
   },
 });
