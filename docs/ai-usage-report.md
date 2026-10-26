@@ -332,6 +332,18 @@ backend/
 openapi.yaml
 ```
 
+Search and filter API (backlog task 13, GitHub issue #15):
+
+- The project owner groomed the task and decided, on 2026-10-25: the date filter as a year plus a BC box (`from_bc`, `to_bc` in `openapi.yaml`), partial search where every word must be found, search only within the requested state, museum matched ignoring capitals and extra spaces, all tags required, an unknown id giving an empty page, the messages "Filter values are not valid." and "Search must be at most 200 characters.", search and filters combined with AND, and no new index or extension.
+- Claude made the approved `openapi.yaml` change first, in its own commit, and added search and filters to `GET /api/artworks` in `backend/main.py`, inside the same database query as the owner and state conditions. It reuses the text check of #4/#7 and the date check of #7; the `%`/`_`/`\` escaping of #4 became a small shared function. The endpoint now reads `page` itself so the checks run in the decided order (login, state, page, filters). Claude wrote one test per rule in `backend/tests/test_artwork_search.py` and removed the #14 test that expected filters to be ignored. The full suite passes (1045 tests).
+
+Recorded in:
+
+```text
+backend/
+openapi.yaml
+```
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
