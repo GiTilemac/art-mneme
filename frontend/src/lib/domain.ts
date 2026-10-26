@@ -8,11 +8,18 @@ export interface Entity {
   name: string;
 }
 
+/** Years are always 1 or more; each year has its own BC flag. */
 export interface ArtworkDate {
   fromYear: number;
   toYear: number | null;
   circa: boolean;
-  bc: boolean;
+  fromBc: boolean;
+  toBc: boolean;
+}
+
+/** A date as the backend answers it, with its readable form. */
+export interface ShownDate extends ArtworkDate {
+  display: string;
 }
 
 export interface ArtworkInput {
@@ -39,20 +46,13 @@ export interface ArtworkDraft {
 }
 
 /** One of the user's own artworks. */
-export interface Artwork extends ArtworkDraft {
+export interface Artwork extends Omit<ArtworkDraft, "date"> {
   id: string;
   state: ArtworkState;
+  date: ShownDate | null;
   hasPhoto: boolean;
-  detailPhotoIds: string[];
-  discoverable: boolean;
-  notesDiscoverable: boolean;
+  photoVersion: string;
   createdAt: string;
-}
-
-/** What other users may see. Never contains photos; notes only when shared. */
-export interface CommunityArtwork extends Omit<ArtworkDraft, "notes"> {
-  id: string;
-  notes: string | null;
 }
 
 export const PAGE_SIZE = 50;
@@ -60,27 +60,46 @@ export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PHOTO_BYTES = 30 * 1024 * 1024;
 export const PHOTO_MAX_EDGE = 2500;
 export const TAG_SUGGESTION_MIN_USES = 2;
+export const MAX_BC_YEAR = 100_000;
 
 /** A collection artwork needs a photo; a watchlist artwork may have one or not. */
 export function validateNewArtwork(state: ArtworkState, hasPhoto: boolean): string | null {
   return state === "COLLECTION" && !hasPhoto ? "Add a photo to put this artwork in your collection." : null;
 }
 
+const signedYear = (year: number, bc: boolean) => (bc ? -year : year);
+
+/** The date as the backend shows it, e.g. `c. 450 BC`, `500–450 BC`, `30 BC – 14 AD`. */
 export function formatDate(d: ArtworkDate | null): string {
   if (!d) return "";
-  let s = String(d.fromYear);
-  if (d.toYear != null && d.toYear !== d.fromYear) s += `–${d.toYear}`;
-  if (d.circa) s = `c. ${s}`;
-  if (d.bc) s += " BC";
-  return s;
+  const start = signedYear(d.fromYear, d.fromBc);
+  const end = d.toYear == null ? null : signedYear(d.toYear, d.toBc);
+  let s: string;
+  if (end == null || end === start) s = start < 0 ? `${-start} BC` : String(start);
+  else if (start < 0 && end > 0) s = `${-start} BC – ${end} AD`;
+  else if (end < 0) s = `${-start}–${-end} BC`;
+  else s = `${start}–${end}`;
+  return d.circa ? `c. ${s}` : s;
 }
 
 /** Signed year span (BC as negative) for range filtering. */
 export function yearSpan(d: ArtworkDate): [number, number] {
-  const sign = d.bc ? -1 : 1;
-  const a = d.fromYear * sign;
-  const b = (d.toYear ?? d.fromYear) * sign;
-  return [Math.min(a, b), Math.max(a, b)];
+  const a = signedYear(d.fromYear, d.fromBc);
+  const b = d.toYear == null ? a : signedYear(d.toYear, d.toBc);
+  return [a, b];
+}
+
+/** The backend's date rules; null when the date is fine. */
+export function validateDate(d: ArtworkDate | null, thisYear = new Date().getFullYear()): string | null {
+  if (!d) return null;
+  for (const [year, bc] of [[d.fromYear, d.fromBc], [d.toYear, d.toBc && d.toYear != null]] as const) {
+    if (year == null) continue;
+    if (year < 1) return "A year must be 1 or more; use the BC box for years before 1 AD.";
+    if (bc && year > MAX_BC_YEAR) return "A BC year cannot be above 100,000.";
+    if (!bc && year > thisYear) return "A year cannot be in the future.";
+  }
+  const [start, end] = yearSpan(d);
+  return d.toYear != null && end < start ? "The end year cannot be before the start year." : null;
 }
 
 export const collapse = (s: string) => s.trim().replace(/\s+/g, " ");
@@ -98,28 +117,6 @@ export function validatePassword(pw: string): string | null {
   return pw.length >= MIN_PASSWORD_LENGTH
     ? null
     : `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
-}
-
-const hasIdentity = (a: Pick<ArtworkInput, "title" | "artistId" | "date">) =>
-  collapse(a.title).length > 0 && !!a.artistId && !!a.date;
-
-export const canBeDiscoverable = hasIdentity;
-
-export function isDuplicate(
-  a: Pick<ArtworkInput, "title" | "artistId" | "date">,
-  b: Pick<ArtworkInput, "title" | "artistId" | "date">,
-): boolean {
-  if (!hasIdentity(a) || !hasIdentity(b)) return false;
-  const da = a.date!;
-  const db = b.date!;
-  return (
-    normalizeName(a.title) === normalizeName(b.title) &&
-    a.artistId === b.artistId &&
-    da.fromYear === db.fromYear &&
-    (da.toYear ?? null) === (db.toYear ?? null) &&
-    da.circa === db.circa &&
-    da.bc === db.bc
-  );
 }
 
 export const emptyDraft = (): ArtworkDraft => ({

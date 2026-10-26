@@ -2,8 +2,8 @@ import "fake-indexeddb/auto";
 import { IDBFactory } from "fake-indexeddb";
 import { Blob as NodeBlob } from "node:buffer";
 import { beforeEach, describe, expect, it } from "vitest";
-import type { ArtworkInput } from "@/lib/domain";
-import { mockServices as api } from "./mock";
+import type { ArtworkDate, ArtworkInput } from "@/lib/domain";
+import { mockServices as api, readArtworkPhoto } from "./mock";
 
 // jsdom's Blob does not survive the simulated photo storage; Node's does.
 const photo = (text = "photo") => new NodeBlob([text], { type: "image/jpeg" }) as unknown as Blob;
@@ -18,7 +18,14 @@ const input = (o: Partial<ArtworkInput> = {}): ArtworkInput => ({
   notes: "",
   ...o,
 });
-const year = (fromYear: number) => ({ fromYear, toYear: null, circa: false, bc: false });
+const year = (fromYear: number, o: Partial<ArtworkDate> = {}): ArtworkDate => ({
+  fromYear,
+  toYear: null,
+  circa: false,
+  fromBc: false,
+  toBc: false,
+  ...o,
+});
 const signUp = (email = "ana@example.com") => api.register(email, "password1");
 const tagId = async (name: string) => (await api.createEntity("tags", name)).id;
 
@@ -82,10 +89,11 @@ describe("shared entries", () => {
   });
 
   it("tag suggestions put the most used first and leave out tags used on fewer than 2 artworks", async () => {
-    const rare = await tagId("rare");
-    await api.createArtwork(input({ tagIds: [rare] }), "WATCHLIST");
+    const [rare, common] = [await tagId("rare"), await tagId("common")];
+    await api.createArtwork(input({ tagIds: [rare, common] }), "WATCHLIST");
+    await api.createArtwork(input({ tagIds: [common] }), "WATCHLIST");
     const names = (await api.suggestTags("")).map((t) => t.name);
-    expect(names[0]).toBe("chiaroscuro");
+    expect(names).toEqual(["common"]);
     expect(names).not.toContain("rare");
   });
 });
@@ -106,13 +114,13 @@ describe("artworks", () => {
   it("adding a photo to a watchlist artwork moves it to the collection and replaces the old photo", async () => {
     const a = await api.createArtwork(input(), "WATCHLIST", photo("old"));
     expect((await api.setArtworkPhoto(a.id, photo("new"))).state).toBe("COLLECTION");
-    expect(await (await api.getArtworkPhoto(a.id))!.text()).toBe("new");
+    expect(await (await readArtworkPhoto(a.id))!.text()).toBe("new");
   });
 
   it("replacing the photo of a collection artwork keeps it in the collection", async () => {
     const a = await api.createArtwork(input(), "COLLECTION", photo("first"));
     expect((await api.setArtworkPhoto(a.id, photo("second"))).state).toBe("COLLECTION");
-    expect(await (await api.getArtworkPhoto(a.id))!.text()).toBe("second");
+    expect(await (await readArtworkPhoto(a.id))!.text()).toBe("second");
   });
 
   it("the list shows only artworks in the chosen state, newest first", async () => {
@@ -144,29 +152,7 @@ describe("artworks", () => {
     await api.logout();
     await signUp("ben@example.com");
     await expect(api.getArtwork(a.id)).rejects.toThrow("not found");
-    await expect(api.getArtworkPhoto(a.id)).rejects.toThrow("not found");
-  });
-
-  it("possible duplicates are found ignoring capital letters and extra spaces", async () => {
-    const artist = await api.createEntity("artists", "Rembrandt van Rijn");
-    await api.createArtwork(
-      input({ title: "The Night Watch", artistId: artist.id, date: year(1642) }),
-      "WATCHLIST",
-    );
-    const dups = await api.findDuplicates({
-      title: " the  night watch",
-      artistId: artist.id,
-      date: year(1642),
-    });
-    expect(dups).toHaveLength(1);
-  });
-
-  it("no duplicate is reported while the date is missing", async () => {
-    const artist = await api.createEntity("artists", "Rembrandt van Rijn");
-    await api.createArtwork(input({ title: "The Night Watch", artistId: artist.id }), "WATCHLIST");
-    expect(
-      await api.findDuplicates({ title: "The Night Watch", artistId: artist.id, date: null }),
-    ).toEqual([]);
+    await expect(readArtworkPhoto(a.id)).rejects.toThrow("not found");
   });
 
   it("a deleted artwork is gone", async () => {
@@ -175,90 +161,42 @@ describe("artworks", () => {
     await expect(api.getArtwork(a.id)).rejects.toThrow("not found");
   });
 
-  it("detail photos can be added, viewed and deleted", async () => {
-    const a = await api.createArtwork(input(), "COLLECTION", photo());
-    const [detail] = (await api.addDetailPhoto(a.id, photo("brushstroke"))).detailPhotoIds;
-    expect(await (await api.getDetailPhoto(a.id, detail!))!.text()).toBe("brushstroke");
-    expect((await api.deleteDetailPhoto(a.id, detail!)).detailPhotoIds).toEqual([]);
-  });
 });
 
-describe("discoverability", () => {
+describe("dates", () => {
   beforeEach(() => signUp());
 
-  it("making an artwork discoverable is refused while the date is missing", async () => {
-    const artist = await api.createEntity("artists", "Caravaggio");
-    const a = await api.createArtwork(input({ title: "Medusa", artistId: artist.id }), "WATCHLIST");
-    await expect(api.setDiscoverable(a.id, true)).rejects.toThrow("title, artist and date");
+  it("an artwork shows its date as the backend writes it", async () => {
+    const date = year(30, { toYear: 14, fromBc: true, circa: true });
+    expect((await api.createArtwork(input({ date }), "WATCHLIST")).date?.display).toBe("c. 30 BC – 14 AD");
   });
 
-  it("an artwork with title, artist and date can be made discoverable without a photo", async () => {
-    const artist = await api.createEntity("artists", "Caravaggio");
-    const a = await api.createArtwork(
-      input({ title: "Medusa", artistId: artist.id, date: year(1597) }),
-      "WATCHLIST",
-    );
-    expect((await api.setDiscoverable(a.id, true)).discoverable).toBe(true);
+  it("a range that ends before it starts is refused, also across eras", async () => {
+    const date = year(14, { toYear: 30, toBc: true });
+    await expect(api.createArtwork(input({ date }), "WATCHLIST")).rejects.toThrow("end year cannot be before");
   });
 
-  it("notes discoverability is switched separately", async () => {
-    const a = await api.createArtwork(input(), "WATCHLIST");
-    expect(await api.setNotesDiscoverable(a.id, true)).toMatchObject({
-      discoverable: false,
-      notesDiscoverable: true,
-    });
+  it("the date filter uses a BC box for each year", async () => {
+    await api.createArtwork(input({ title: "Old", date: year(450, { fromBc: true }) }), "WATCHLIST");
+    await api.createArtwork(input({ title: "New", date: year(1642) }), "WATCHLIST");
+    const titles = async (p: object) =>
+      (await api.listArtworks({ state: "WATCHLIST", ...p })).items.map((a) => a.title);
+    expect(await titles({ fromYear: 500, fromBc: true, toYear: 400, toBc: true })).toEqual(["Old"]);
+    expect(await titles({ fromYear: 1600 })).toEqual(["New"]);
   });
 });
 
 describe("exploration", () => {
   beforeEach(() => signUp());
 
-  const sources = { includeCollection: true, includeWatchlist: false, includeCommunity: true };
-
-  it("community results come from discoverable artworks and show notes only when shared", async () => {
-    const artist = await api.createEntity("artists", "Caravaggio");
-    const a = await api.createArtwork(input({ artistId: artist.id }), "WATCHLIST");
-    const { community } = await api.explore(a.id, { by: "artist", tagIds: [], ...sources });
-    expect(community.map((c) => [c.title, c.notes])).toEqual([
-      ["David with the Head of Goliath", "Goliath is a self-portrait."],
-      ["Judith Beheading Holofernes", null],
-    ]);
-    expect(community[0]).not.toHaveProperty("hasPhoto");
-  });
-
-  it("community results are left out unless asked for", async () => {
-    const artist = await api.createEntity("artists", "Caravaggio");
-    const a = await api.createArtwork(input({ artistId: artist.id }), "WATCHLIST");
-    const result = await api.explore(a.id, {
-      by: "artist",
-      tagIds: [],
-      ...sources,
-      includeCommunity: false,
-    });
-    expect(result.community).toEqual([]);
-  });
+  const sources = { includeCollection: true, includeWatchlist: false };
 
   it("watchlist results are left out unless asked for", async () => {
     const artist = await api.createEntity("artists", "Caravaggio");
     const a = await api.createArtwork(input({ artistId: artist.id }), "COLLECTION", photo());
     await api.createArtwork(input({ artistId: artist.id }), "WATCHLIST");
-    const off = await api.explore(a.id, { by: "artist", tagIds: [], ...sources });
-    const on = await api.explore(a.id, {
-      by: "artist",
-      tagIds: [],
-      ...sources,
-      includeWatchlist: true,
-    });
+    const off = await api.explore(a.id, { by: "artist", ...sources });
+    const on = await api.explore(a.id, { by: "artist", ...sources, includeWatchlist: true });
     expect([off.watchlist.length, on.watchlist.length]).toEqual([0, 1]);
-  });
-
-  it("shared tags results carry every chosen tag", async () => {
-    const tags = [await tagId("battle"), await tagId("horse"), await tagId("armor")];
-    const a = await api.createArtwork(input({ tagIds: tags }), "WATCHLIST");
-    const { community } = await api.explore(a.id, { by: "tags", tagIds: tags, ...sources });
-    expect(community.map((c) => c.title).sort()).toEqual([
-      "The Battle of San Romano",
-      "The Battle of the Amazons",
-    ]);
   });
 });

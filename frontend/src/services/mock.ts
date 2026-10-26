@@ -4,12 +4,12 @@
  * Each function follows the matching endpoint in openapi.yaml.
  */
 import {
-  canBeDiscoverable,
   collapse,
-  isDuplicate,
   normalizeName,
   PAGE_SIZE,
   TAG_SUGGESTION_MIN_USES,
+  formatDate,
+  validateDate,
   validateNewArtwork,
   validatePassword,
   validateTag,
@@ -17,7 +17,6 @@ import {
   type Artwork,
   type ArtworkInput,
   type ArtworkState,
-  type CommunityArtwork,
   type Entity,
   type EntityKind,
 } from "@/lib/domain";
@@ -29,9 +28,6 @@ interface StoredArtwork extends ArtworkInput {
   ownerId: string;
   state: ArtworkState;
   photoId: string | null;
-  detailPhotoIds: string[];
-  discoverable: boolean;
-  notesDiscoverable: boolean;
   createdAt: string;
 }
 
@@ -51,7 +47,7 @@ interface Session {
   expiresAt: number;
 }
 
-const DB_KEY = "artmneme-db-v1";
+const DB_KEY = "artmneme-db-v2";
 const SESSION_KEY = "artmneme-session";
 const SESSION_MS = 30 * 24 * 60 * 60 * 1000;
 const uid = () => crypto.randomUUID();
@@ -221,7 +217,7 @@ function resolved(db: Db, a: StoredArtwork) {
   return {
     title: a.title,
     artist: find(db.artists, a.artistId),
-    date: a.date,
+    date: a.date && { ...a.date, display: formatDate(a.date) },
     subject: find(db.subjects, a.subjectId),
     movement: find(db.movements, a.movementId),
     museum: a.museum,
@@ -236,15 +232,9 @@ function view(db: Db, a: StoredArtwork): Artwork {
     notes: a.notes,
     state: a.state,
     hasPhoto: !!a.photoId,
-    detailPhotoIds: [...a.detailPhotoIds],
-    discoverable: a.discoverable,
-    notesDiscoverable: a.notesDiscoverable,
+    photoVersion: a.photoId ?? "",
     createdAt: a.createdAt,
   };
-}
-
-function communityView(db: Db, a: StoredArtwork): CommunityArtwork {
-  return { ...resolved(db, a), id: a.id, notes: a.notesDiscoverable ? a.notes : null };
 }
 
 function own(db: Db, id: string): StoredArtwork {
@@ -272,11 +262,12 @@ async function listArtworks(p: ListParams) {
   if (p.artistId) items = items.filter((a) => a.artistId === p.artistId);
   if (p.movementId) items = items.filter((a) => a.movementId === p.movementId);
   if (p.museum)
-    items = items.filter((a) => a.museum.toLowerCase().includes(normalizeName(p.museum!)));
+    items = items.filter((a) => normalizeName(a.museum) === normalizeName(p.museum!));
   if (p.tagIds?.length) items = items.filter((a) => p.tagIds!.every((t) => a.tagIds.includes(t)));
   if (p.fromYear != null || p.toYear != null) {
-    const lo = p.fromYear ?? -Infinity;
-    const hi = p.toYear ?? Infinity;
+    const lo = p.fromYear == null ? -Infinity : p.fromBc ? -p.fromYear : p.fromYear;
+    const hi = p.toYear == null ? Infinity : p.toBc ? -p.toYear : p.toYear;
+    if (hi < lo) throw new Error("The end year cannot be before the start year.");
     items = items.filter((a) => {
       if (!a.date) return false;
       const [s, e] = yearSpan(a.date);
@@ -293,23 +284,9 @@ async function getArtwork(id: string) {
   return wait(view(db, own(db, id)));
 }
 
-async function findDuplicates(
-  input: Pick<ArtworkInput, "title" | "artistId" | "date">,
-  excludeId?: string,
-) {
-  const userId = me();
-  const db = load();
-  return wait(
-    db.artworks
-      .filter((a) => a.ownerId === userId && a.id !== excludeId && isDuplicate(a, input))
-      .map((a) => view(db, a)),
-    40,
-  );
-}
-
 async function createArtwork(input: ArtworkInput, state: ArtworkState, photo?: Blob | null) {
   const userId = me();
-  const invalid = validateNewArtwork(state, !!photo);
+  const invalid = validateNewArtwork(state, !!photo) ?? validateDate(input.date);
   if (invalid) throw new Error(invalid);
   const photoId = photo ? await putPhoto(photo) : null;
   const db = load();
@@ -321,9 +298,6 @@ async function createArtwork(input: ArtworkInput, state: ArtworkState, photo?: B
     ownerId: userId,
     state,
     photoId,
-    detailPhotoIds: [],
-    discoverable: false,
-    notesDiscoverable: false,
     createdAt: new Date().toISOString(),
   };
   db.artworks.push(a);
@@ -335,8 +309,8 @@ async function updateArtwork(id: string, patch: Partial<ArtworkInput>) {
   const db = load();
   const a = own(db, id);
   const next = { ...a, ...patch };
-  if (next.discoverable && !canBeDiscoverable(next))
-    throw new Error("An artwork must keep its title, artist and date while it is discoverable.");
+  const invalid = validateDate(next.date);
+  if (invalid) throw new Error(invalid);
   Object.assign(a, next, { title: collapse(next.title), museum: collapse(next.museum) });
   save(db);
   return wait(view(db, a));
@@ -347,7 +321,7 @@ async function deleteArtwork(id: string) {
   const a = own(db, id);
   db.artworks = db.artworks.filter((x) => x.id !== id);
   save(db);
-  await Promise.all([a.photoId, ...a.detailPhotoIds].filter(Boolean).map((p) => removePhoto(p!)));
+  if (a.photoId) await removePhoto(a.photoId);
 }
 
 // ---------- photos ----------
@@ -365,55 +339,10 @@ async function setArtworkPhoto(id: string, photo: Blob) {
   return view(db, a);
 }
 
-/** Photos are private: only the owner can read them. */
-async function getArtworkPhoto(id: string) {
+/** For the tests: the stored photo of an artwork. The app loads photos from the photo address. */
+export async function readArtworkPhoto(id: string) {
   const a = own(load(), id);
   return a.photoId ? readPhoto(a.photoId) : null;
-}
-
-async function addDetailPhoto(id: string, photo: Blob) {
-  own(load(), id);
-  const photoId = await putPhoto(photo);
-  const db = load();
-  const a = own(db, id);
-  a.detailPhotoIds.push(photoId);
-  save(db);
-  return view(db, a);
-}
-
-async function getDetailPhoto(id: string, photoId: string) {
-  const a = own(load(), id);
-  if (!a.detailPhotoIds.includes(photoId)) throw new Error("Photo not found.");
-  return readPhoto(photoId);
-}
-
-async function deleteDetailPhoto(id: string, photoId: string) {
-  const db = load();
-  const a = own(db, id);
-  if (!a.detailPhotoIds.includes(photoId)) throw new Error("Photo not found.");
-  a.detailPhotoIds = a.detailPhotoIds.filter((p) => p !== photoId);
-  save(db);
-  await removePhoto(photoId);
-  return view(db, a);
-}
-
-// ---------- discoverability ----------
-async function setDiscoverable(id: string, value: boolean) {
-  const db = load();
-  const a = own(db, id);
-  if (value && !canBeDiscoverable(a))
-    throw new Error("Set a title, artist and date before making this artwork discoverable.");
-  a.discoverable = value;
-  save(db);
-  return wait(view(db, a));
-}
-
-async function setNotesDiscoverable(id: string, value: boolean) {
-  const db = load();
-  const a = own(db, id);
-  a.notesDiscoverable = value;
-  save(db);
-  return wait(view(db, a));
 }
 
 // ---------- relationship exploration ----------
@@ -431,23 +360,17 @@ async function explore(id: string, p: ExploreParams): Promise<RelatedArtworks> {
         return !!src.movementId && a.movementId === src.movementId;
       case "museum":
         return !!src.museum && normalizeName(a.museum) === normalizeName(src.museum);
-      case "tags":
-        return p.tagIds.length > 0 && p.tagIds.every((t) => a.tagIds.includes(t));
     }
   };
-  const candidates = db.artworks.filter((a) => a.id !== src.id && match(a));
-  const mine = candidates.filter((a) => a.ownerId === userId);
+  const mine = db.artworks
+    .filter((a) => a.id !== src.id && a.ownerId === userId && match(a))
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return wait({
     collection: p.includeCollection
       ? mine.filter((a) => a.state === "COLLECTION").map((a) => view(db, a))
       : [],
     watchlist: p.includeWatchlist
       ? mine.filter((a) => a.state === "WATCHLIST").map((a) => view(db, a))
-      : [],
-    community: p.includeCommunity
-      ? candidates
-          .filter((a) => a.ownerId !== userId && a.discoverable)
-          .map((a) => communityView(db, a))
       : [],
   });
 }
@@ -461,18 +384,12 @@ export const mockServices: Services = {
   createEntity,
   suggestTags,
   listArtworks,
-  findDuplicates,
   createArtwork,
   getArtwork,
   updateArtwork,
   deleteArtwork,
   setArtworkPhoto,
-  getArtworkPhoto,
-  addDetailPhoto,
-  getDetailPhoto,
-  deleteDetailPhoto,
-  setDiscoverable,
-  setNotesDiscoverable,
+  photoUrl: (a) => (a.hasPhoto ? `/api/artworks/${a.id}/photo?v=${a.photoVersion}` : null),
   explore,
 };
 
@@ -513,100 +430,12 @@ function seed(): Db {
     "Militia",
   ]);
   const tags = ent(["battle", "horse", "armor", "chiaroscuro", "sword"]);
-  const id = (l: Entity[], n: string) => l.find((e) => e.name === n)!.id;
-  const T = (...n: string[]) => n.map((x) => id(tags, x));
-  const yr = (fromYear: number, circa = false) => ({ fromYear, toYear: null, circa, bc: false });
-  const community = (
-    title: string,
-    artist: string,
-    date: ReturnType<typeof yr>,
-    subject: string | null,
-    museum: string,
-    tagIds: string[],
-    notes = "",
-  ): StoredArtwork => ({
-    id: uid(),
-    ownerId: "community",
-    state: "COLLECTION",
-    title,
-    artistId: id(artists, artist),
-    date,
-    subjectId: subject ? id(subjects, subject) : null,
-    movementId: id(movements, artist === "Paolo Uccello" ? "Early Renaissance" : "Baroque"),
-    museum,
-    tagIds,
-    notes,
-    photoId: null,
-    detailPhotoIds: [],
-    discoverable: true,
-    notesDiscoverable: !!notes,
-    createdAt: new Date(2026, 0, 1).toISOString(),
-  });
   return {
     users: [],
     artists,
     movements,
     subjects,
     tags,
-    artworks: [
-      community(
-        "David with the Head of Goliath",
-        "Caravaggio",
-        yr(1610, true),
-        "David and Goliath",
-        "Galleria Borghese",
-        T("chiaroscuro", "sword"),
-        "Goliath is a self-portrait.",
-      ),
-      community(
-        "Judith Beheading Holofernes",
-        "Caravaggio",
-        yr(1599, true),
-        "Judith",
-        "Palazzo Barberini",
-        T("chiaroscuro", "sword"),
-      ),
-      community(
-        "Judith Slaying Holofernes",
-        "Artemisia Gentileschi",
-        yr(1620, true),
-        "Judith",
-        "Uffizi",
-        T("chiaroscuro", "sword"),
-      ),
-      community(
-        "The Judgement of Paris",
-        "Peter Paul Rubens",
-        yr(1636),
-        "Judgement of Paris",
-        "Prado",
-        [],
-      ),
-      community(
-        "The Battle of the Amazons",
-        "Peter Paul Rubens",
-        yr(1618),
-        "Battle",
-        "Alte Pinakothek",
-        T("battle", "horse", "armor"),
-      ),
-      community(
-        "The Battle of San Romano",
-        "Paolo Uccello",
-        yr(1438, true),
-        "Battle",
-        "National Gallery",
-        T("battle", "horse", "armor"),
-        "Look at the broken lances on the ground.",
-      ),
-      community(
-        "The Night Watch",
-        "Rembrandt van Rijn",
-        yr(1642),
-        "Militia",
-        "Rijksmuseum",
-        T("armor", "chiaroscuro"),
-      ),
-    ],
+    artworks: [],
   };
 }
