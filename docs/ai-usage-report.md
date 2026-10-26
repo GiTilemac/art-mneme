@@ -320,6 +320,18 @@ Recorded in:
 backend/
 ```
 
+Artwork list API (backlog task 12, GitHub issue #14):
+
+- The project owner groomed the task and decided, on 2026-10-25: the `422` on `GET /artworks` in `openapi.yaml`, "Choose Collection or Watchlist." for a missing or wrong state, artworks created at the same moment ordered highest id first, search and filter parameters ignored until task 13, no new index, and `photo_version` on the `Artwork`.
+- Claude made the approved `openapi.yaml` change first, in its own commit, and wrote `GET /api/artworks` in `backend/main.py`. The shared `Artwork` builder now builds many artworks with three queries, so a page of 50 costs no more queries than a page of 5; the single-artwork version uses it too. Claude wrote one test per rule in `backend/tests/test_artwork_list.py`. The full suite passes (996 tests).
+
+Recorded in:
+
+```text
+backend/
+openapi.yaml
+```
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
