@@ -74,7 +74,10 @@ def storage_unavailable(request: Request, error: photos.StorageUnavailable):
 
 
 def get_connection():
-    """A database connection whose changes are committed when the request ends."""
+    """A database connection whose changes are committed when the request ends.
+
+    Always used with scope="function", so the commit happens before the answer is sent.
+    """
     with get_engine().begin() as connection:
         yield connection
 
@@ -101,7 +104,7 @@ def start_session(connection: Connection, response: Response, user_id: int) -> N
     set_session_cookie(response, token)
 
 
-def current_user(request: Request, response: Response, connection: Connection = Depends(get_connection)) -> dict:
+def current_user(request: Request, response: Response, connection: Connection = Depends(get_connection, scope="function")) -> dict:
     """The login check: the calling user, with their session renewed for 30 days. Refuses with 401 otherwise."""
     token = request.cookies.get(SESSION_COOKIE)
     user = None
@@ -142,7 +145,7 @@ def health():
 
 
 @app.post("/api/auth/register", status_code=201)
-def register(credentials: Credentials, response: Response, connection: Connection = Depends(get_connection)):
+def register(credentials: Credentials, response: Response, connection: Connection = Depends(get_connection, scope="function")):
     email, password = checked(credentials)
     user_id = connection.execute(
         text(
@@ -158,7 +161,7 @@ def register(credentials: Credentials, response: Response, connection: Connectio
 
 
 @app.post("/api/auth/login")
-def login(credentials: Credentials, response: Response, connection: Connection = Depends(get_connection)):
+def login(credentials: Credentials, response: Response, connection: Connection = Depends(get_connection, scope="function")):
     email, password = checked(credentials)
     user = connection.execute(
         text("SELECT id, email, password_hash FROM users WHERE lower(email) = :email"), {"email": email}
@@ -174,7 +177,7 @@ def login(credentials: Credentials, response: Response, connection: Connection =
 
 
 @app.post("/api/auth/logout", status_code=204)
-def logout(request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)):
+def logout(request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")):
     connection.execute(
         text("DELETE FROM sessions WHERE token_hash = :token_hash"),
         {"token_hash": hash_token(request.cookies[SESSION_COOKIE])},
@@ -229,7 +232,7 @@ def add_entity_endpoints(table: str) -> None:
         q: str = "",
         page: int = Query(1, ge=1),
         user: dict = Depends(current_user),
-        connection: Connection = Depends(get_connection),
+        connection: Connection = Depends(get_connection, scope="function"),
     ):
         q = cleaned(q)
         refuse_characters_not_allowed(q)
@@ -260,7 +263,7 @@ def add_entity_endpoints(table: str) -> None:
         new: NewEntity,
         response: Response,
         user: dict = Depends(current_user),
-        connection: Connection = Depends(get_connection),
+        connection: Connection = Depends(get_connection, scope="function"),
     ):
         name = checked_name(new.name)
         entity = connection.execute(
@@ -301,7 +304,7 @@ def create_tag(
     new: NewEntity,
     response: Response,
     user: dict = Depends(current_user),
-    connection: Connection = Depends(get_connection),
+    connection: Connection = Depends(get_connection, scope="function"),
 ):
     name = lowercased(new.name)
     if not name:
@@ -324,7 +327,7 @@ def create_tag(
 
 @app.get("/api/tags/suggestions")
 def suggest_tags(
-    q: str = "", user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+    q: str = "", user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")
 ):
     q = lowercased(q)
     # No tag could contain such a q; the database is not asked, as it cannot hold a NUL character.
@@ -605,7 +608,7 @@ def text_of(part) -> str | None:
 
 @app.post("/api/artworks", status_code=201)
 async def create_artwork_endpoint(
-    request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+    request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")
 ):
     if not request.headers.get("content-type", "").startswith("multipart/form-data"):
         raise HTTPException(status_code=422, detail="The request must be multipart/form-data.")
@@ -641,13 +644,13 @@ def own_artwork(connection: Connection, user: dict, artwork_id: str):
 
 
 @app.get("/api/artworks/{artwork_id}")
-def get_artwork(artwork_id: str, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)):
+def get_artwork(artwork_id: str, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")):
     return artwork_response(connection, own_artwork(connection, user, artwork_id).id)
 
 
 @app.patch("/api/artworks/{artwork_id}")
 async def edit_artwork_endpoint(
-    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")
 ):
     artwork = own_artwork(connection, user, artwork_id)
     body = await request.body()
@@ -711,7 +714,7 @@ def edit_artwork(connection: Connection, artwork, sent: dict) -> dict:
 
 
 @app.delete("/api/artworks/{artwork_id}", status_code=204)
-def delete_artwork(artwork_id: str, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)):
+def delete_artwork(artwork_id: str, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")):
     artwork = own_artwork(connection, user, artwork_id)
     with connection.begin_nested():
         paths = connection.execute(
@@ -759,7 +762,7 @@ def replace_photo(connection: Connection, artwork, photo: bytes) -> dict:
 
 @app.put("/api/artworks/{artwork_id}/photo")
 async def upload_photo(
-    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")
 ):
     artwork = own_artwork(connection, user, artwork_id)
     if not request.headers.get("content-type", "").startswith("multipart/form-data"):
@@ -776,7 +779,7 @@ async def upload_photo(
 
 @app.get("/api/artworks/{artwork_id}/photo")
 def get_photo(
-    artwork_id: str, v: str | None = None, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+    artwork_id: str, v: str | None = None, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")
 ):
     path = own_artwork(connection, user, artwork_id).artwork_photo_path
     if path is None:
@@ -854,7 +857,7 @@ def search_conditions(params) -> tuple[list[str], dict]:
 
 
 @app.get("/api/artworks")
-def list_artworks(request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)):
+def list_artworks(request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")):
     """One page of the user's own artworks of one state, newest first, narrowed by `q` and the filters."""
     params = request.query_params
     state = params.get("state")
@@ -899,7 +902,7 @@ def flag(params, name: str, default: bool) -> bool:
 
 @app.get("/api/artworks/{artwork_id}/related")
 def related_artworks(
-    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)
+    artwork_id: str, request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection, scope="function")
 ):
     """The user's own artworks sharing one field with this one, grouped by state, at most 50 each, newest first."""
     artwork = own_artwork(connection, user, artwork_id)
