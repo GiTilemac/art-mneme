@@ -340,7 +340,26 @@ make deploy-stack   # create or update the AWS resources; prints the app address
 make deploy         # build this version, push it and start it on the server
 ```
 
-Run `make deploy` again for every new version. The app is at the `AppUrl` that `make deploy-stack` prints (`https://<address>.sslip.io`). To open a shell on the server, use `aws ssm start-session --target <InstanceId>`; no SSH key is needed.
+The app is at the `AppUrl` that `make deploy-stack` prints (`https://<address>.sslip.io`). To open a shell on the server, use `aws ssm start-session --target <InstanceId>`; no SSH key is needed.
+
+### Deploy a new version
+
+Run these steps from the repository root, in a terminal where `aws sts get-caller-identity` shows the ArtMneme account (for example after `export AWS_PROFILE=artmneme-deploy`).
+
+1. Run the tests: `make test`, `make integration` and `make e2e`. All must pass.
+2. Commit the changes. The image is named after the commit (for example `7ab31e2`); uncommitted changes give a name that ends in `-dirty`, so you cannot tell later what runs.
+3. If the version changes the database (a new file in `backend/migrations/versions/`), take a snapshot of the server disk first. The app updates the database schema when it starts, and a rollback does not undo that.
+4. Run `make deploy`. It builds the image, uploads it, copies `deploy/docker-compose.prod.yaml` and `deploy/Caddyfile` to the server and restarts the changed containers. The app is unavailable for a few seconds. At the end it prints `Deployed <commit> to <address>`.
+5. Check the result: `curl https://<address>/api/health` gives `{"status":"ok"}`. Then sign in in a browser and open an artwork.
+6. Push the commit to GitHub, so the repository shows what runs.
+
+If the new version does not work, go back to the previous one:
+
+1. Run `git checkout <previous commit>`, then `make deploy`. ECR keeps the last 5 images, but `make deploy` builds the image again from that commit.
+2. Run `git checkout main` again.
+3. If the new version changed the database, restore the snapshot from step 3 instead (create a volume from it and attach it in place of the server's disk), or ask for help first.
+
+Changes to `deploy/cloudformation.yaml` are deployed with `make deploy-stack`, not `make deploy`. Be careful: the template asks for the latest Amazon Linux image, so after Amazon publishes a new one, `make deploy-stack` replaces the server, and the database on its disk starts empty. A change to `UserData` stops and starts the server, and the start script does not run again. Take a disk snapshot before every `make deploy-stack` on a running stack.
 
 ---
 
