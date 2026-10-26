@@ -424,6 +424,10 @@ Go live and full alert drill on prod (2026-10-26):
 - Drill: `make fault-on`, `make trigger-alert` (HTTP 500 twice), the alert fired for `prod` and the email arrived; `make on-call` started the agent, which named the fault switch as the likely cause, ran the tests (all passed) and committed nothing. It could not confirm the switch on prod, so on the owner's request Claude added the read-only `deploy/prod-status.sh` and allowed the agent to run it.
 - Rollback drill: Claude checked that no database migration changed since the previous image, ran "Deploy to prod" with the previous tag `20261026-171541-455f748` (deployed and healthy in about 1 minute; Grafana Cloud showed the old version), then "Deploy to prod" without a tag to return to `20261026-175010-5db5c27` (healthy).
 
+Frontend screen tests (2026-10-26):
+
+- The project owner approved Claude's plan (one test per rule, simulated backend, real router in memory). A Claude Sonnet agent wrote 21 tests in `frontend/src/test/` for sign-in, the signed-in area, adding artworks, the lists, the artwork page and Explore; Claude checked that they test what the user sees and that all 66 frontend tests pass. Photo shrinking is replaced in these tests, because jsdom cannot decode images.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
