@@ -307,6 +307,14 @@ docker run -p 8000:8000 -e DATABASE_URL=... -e PHOTO_DIR=/photos artmneme
 
 `DATABASE_URL` must reach the database from inside the container. Use the four R2 variables instead of `PHOTO_DIR` in production. At start the container brings the database schema up to date.
 
+To run the app together with its own PostgreSQL, use Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Then open http://localhost:8000. The database and the photos are kept in Docker volumes. `APP_PORT=8001 docker compose up --build` uses another port on your computer.
+
 ---
 
 # Technology Goals
