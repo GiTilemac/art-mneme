@@ -237,7 +237,15 @@ Dashboard: "ArtMneme application metrics" (`observability/grafana/dashboards/art
 
 Shared stack (2026-10-26): dev and prod send to Grafana Cloud (`README.md` > Telemetry > Grafana Cloud); the dashboard file works there through its "Data source" filter.
 
-Not yet: logs through OpenTelemetry, and alerts.
+Logs (2026-10-26): the logger `artmneme` writes one JSON object per line to stdout and sends the same records with OTLP (Loki locally and in Grafana Cloud). Every record made during a request has its `trace_id` and `span_id`, so a log line, its trace and the request's metrics belong together. Records:
+
+```text
+request                    method, route template, status, duration_ms      (every request)
+artwork created            artwork_id, state, has_photo
+artwork creation failed    reason (invalid | storage | error), status or exception
+```
+
+No customer data: no email, password, title, note or search text (the route template is logged, not the path; uvicorn's own access log is off). A test checks this (`backend/tests/test_logs.py`). To find the logs of a trace in Grafana: Explore > Loki, `{service_name="artmneme-backend"} | trace_id="<trace id>"`; or from Loki to a trace by its `trace_id`.
 
 ---
 

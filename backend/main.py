@@ -3,6 +3,7 @@ import json
 import os
 import re
 import secrets
+import time
 import unicodedata
 from datetime import UTC, datetime
 from pathlib import Path
@@ -30,6 +31,25 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 tracer_provider = telemetry.instrument(app)
+log = telemetry.log
+
+
+@app.middleware("http")
+async def log_request(request: Request, call_next):
+    """One log line per request: method, route template (not the path, which can hold search text), status, time."""
+    started = time.perf_counter()
+    response = await call_next(request)
+    route = request.scope.get("route")
+    log.info(
+        "request",
+        extra={
+            "method": request.method,
+            "route": getattr(route, "path", None),
+            "status": response.status_code,
+            "duration_ms": round((time.perf_counter() - started) * 1000, 1),
+        },
+    )
+    return response
 
 SESSION_COOKIE = "session"
 SESSION_DAYS = 30
@@ -616,15 +636,20 @@ async def create_artwork_endpoint(
     try:
         artwork = await receive_artwork(request, user, connection)
     except HTTPException as error:
-        telemetry.artwork_creation_failures.add(1, {"reason": "invalid" if error.status_code == 422 else "error"})
+        reason = "invalid" if error.status_code == 422 else "error"
+        telemetry.artwork_creation_failures.add(1, {"reason": reason})
+        log.warning("artwork creation failed", extra={"reason": reason, "status": error.status_code})
         raise
     except photos.StorageUnavailable:
         telemetry.artwork_creation_failures.add(1, {"reason": "storage"})
+        log.exception("artwork creation failed", extra={"reason": "storage"})
         raise
     except Exception:
         telemetry.artwork_creation_failures.add(1, {"reason": "error"})
+        log.exception("artwork creation failed", extra={"reason": "error"})
         raise
     telemetry.artworks_created.add(1, {"state": artwork["state"]})
+    log.info("artwork created", extra={"artwork_id": artwork["id"], "state": artwork["state"], "has_photo": artwork["has_photo"]})
     if artwork["has_photo"]:
         telemetry.photos_uploaded.add(1, {"kind": "create"})
     return artwork

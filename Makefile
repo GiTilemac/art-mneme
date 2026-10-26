@@ -28,7 +28,7 @@ run: install migrate
 	         echo "Telemetry: Grafana Cloud ($$endpoint)" ;; \
 	  *) echo "TELEMETRY must be empty, local or cloud."; exit 1 ;; \
 	esac; \
-	cd backend && uv run uvicorn main:app --port 8000
+	cd backend && uv run uvicorn main:app --port 8000 --no-access-log
 
 install:
 	cd backend && uv sync

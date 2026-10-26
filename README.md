@@ -241,7 +241,7 @@ The port in these values must match your local server (for example 5433). These 
 
 ## Telemetry
 
-The backend sends OpenTelemetry traces and HTTP metrics for every request (`backend/telemetry.py`), with OTLP over HTTP:
+The backend sends OpenTelemetry traces, HTTP metrics and structured JSON logs (with the trace ID) for every request (`backend/telemetry.py`), with OTLP over HTTP. The JSON logs also go to stdout (`docker compose logs app`):
 
 | Variable | Used by | Value |
 |----------|---------|-------|
