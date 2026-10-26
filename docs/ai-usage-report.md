@@ -344,6 +344,18 @@ backend/
 openapi.yaml
 ```
 
+Relationship exploration API (backlog task 15, GitHub issue #19):
+
+- The project owner groomed the task and decided, on 2026-10-25: at most 50 artworks per source, newest first (highest id first on ties), added to `openapi.yaml`; two empty lists when the starting artwork has no value for the chosen field or both sources are off; the starting artwork never in its own results; `by=tags` refused with "Exploring by tags is not available yet."; museum matched ignoring capitals and extra spaces. On 2026-10-26 the owner postponed community results and shared-tags exploration, so this task covers only the user's own artworks.
+- Claude made the approved `openapi.yaml` change first, in its own commit, and wrote `GET /api/artworks/{artwork_id}/related` in `backend/main.py`, reusing the ownership check of #8 and the `Artwork` builder of #14. Claude wrote one test per rule in `backend/tests/test_related.py`. The full suite passes (1073 tests).
+
+Recorded in:
+
+```text
+backend/
+openapi.yaml
+```
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
