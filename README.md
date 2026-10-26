@@ -315,6 +315,10 @@ docker compose up --build
 
 Then open http://localhost:8000. The database and the photos are kept in Docker volumes. `APP_PORT=8001 docker compose up --build` uses another port on your computer.
 
+## Integration tests
+
+`make integration` starts `docker-compose.yaml` with empty volumes on port 8092 and runs the tests in `backend/integration/` against it over HTTP. Afterwards it removes the containers and their volumes. It needs Docker; `make test` does not run these tests.
+
 ---
 
 # Technology Goals

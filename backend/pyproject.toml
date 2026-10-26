@@ -21,3 +21,5 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+# `make integration` runs integration/ against the docker-compose.yaml stack.
+testpaths = ["tests"]
