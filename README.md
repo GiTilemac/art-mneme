@@ -282,14 +282,14 @@ aws ssm put-parameter --profile artmneme-deploy --type SecureString --name /artm
 make grafana-cloud
 ```
 
-Grafana Cloud sends firing alerts to its default contact point: the email address of your Grafana Cloud account.
+Grafana Cloud sends firing alerts through its default notification policy. A new stack may route them to a contact point "empty" with no channel: in Grafana, open Alerting > Notification policies, edit the Default policy, and choose an email contact point.
 
 To fire the alert on purpose (alert trigger):
 
 - Locally: start the backend with `ARTMNEME_FAULT=artwork-creation make run TELEMETRY=local` (or `TELEMETRY=cloud`), then run `make trigger-alert`.
 - On prod: `make fault-on`, then `make trigger-alert URL=https://<address>.sslip.io`, and afterwards `make fault-off`. The prod compose file must include `ARTMNEME_FAULT` (any deploy after 2026-10-26). The trigger leaves a throwaway user `alert-trigger-<time>@example.com`.
 
-`make on-call` starts the local on-call engineer (`on-call-engineer/on_call.py`): every minute it asks Grafana Cloud for firing alerts (`make on-call ALERTS=local` asks the local Grafana) and starts Claude Code headless for each new one, with `docs/team/on-call-engineer.md` as its instructions. It needs Claude Code installed and signed in. A fix appears as a local branch `oncall/<time>`: review it with `git log -p main..oncall/<time>`, then merge and push it as usual. Session logs are in `on-call-engineer/logs/`. Ctrl+C stops it.
+`make on-call` starts the local on-call engineer (`on-call-engineer/on_call.py`): every minute it asks Grafana Cloud for firing alerts (`make on-call ALERTS=local` asks the local Grafana) and starts Claude Code headless for each new one, with `docs/team/on-call-engineer.md` as its instructions. It needs Claude Code installed and signed in. A fix appears as a local branch `oncall/<time>`: review it with `git log -p main..oncall/<time>`, then merge and push it as usual. Session logs are in `on-call-engineer/logs/`. Ctrl+C stops it. For a prod alert the agent may run `deploy/prod-status.sh [LINES]`, which only reads: the fault switch, the health check, the running image and the last app log lines. You can run it yourself too.
 
 ### Local observability stack
 

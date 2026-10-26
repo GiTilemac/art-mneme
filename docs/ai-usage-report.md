@@ -418,6 +418,11 @@ Alert threshold and alert trigger (2026-10-26):
 
 - The project owner chose to fire on one server-side failure within 15 minutes (as first recorded) instead of three in ten. Claude changed the rule (wait 1 minute), added the fault switch `ARTMNEME_FAULT=artwork-creation` with a test, `make trigger-alert`, and `make fault-on` / `make fault-off` for prod, and tested the trigger end to end locally.
 
+Go live and full alert drill on prod (2026-10-26):
+
+- Claude scheduled the prod deploy after the owner's push and checked that prod sends telemetry to Grafana Cloud with the labels `prod` and the version. Claude uploaded the dashboard and the alert rule with `make grafana-cloud` and found two setup problems: the upload needs a service account with the Admin role, and the stack's default notification policy sent alerts to a contact point without a channel. The project owner fixed both in Grafana.
+- Drill: `make fault-on`, `make trigger-alert` (HTTP 500 twice), the alert fired for `prod` and the email arrived; `make on-call` started the agent, which named the fault switch as the likely cause, ran the tests (all passed) and committed nothing. It could not confirm the switch on prod, so on the owner's request Claude added the read-only `deploy/prod-status.sh` and allowed the agent to run it.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.

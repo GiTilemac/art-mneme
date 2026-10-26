@@ -23,11 +23,14 @@ LOGS = HERE / "logs"
 HANDLED = HERE / "logs" / "handled.json"  # alerts already given to the agent, so a restart does not repeat them
 WORKTREES = Path.home() / ".cache" / "artmneme-oncall"
 ROLE = REPOSITORY / "docs" / "team" / "on-call-engineer.md"
+# Read-only view of prod (fault switch, health, app logs), from the main checkout: the worktree may be older.
+PROD_STATUS = REPOSITORY / "deploy" / "prod-status.sh"
 POLL_SECONDS = 60
-# What the agent may do without asking: read, edit, run tests and the app through uv, use git locally, call HTTP.
+# What the agent may do without asking: read, edit, run tests and the app through uv, use git locally, call HTTP,
+# look at prod read-only.
 ALLOWED_TOOLS = ["Read", "Grep", "Glob", "Edit", "Write", "Bash(uv run:*)", "Bash(uv sync:*)", "Bash(curl:*)",
                  "Bash(ls:*)", "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)",
-                 "Bash(git add:*)", "Bash(git commit:*)"]
+                 "Bash(git add:*)", "Bash(git commit:*)", f"Bash({PROD_STATUS}:*)"]
 
 
 def ssm(name: str) -> str:
@@ -73,6 +76,8 @@ def investigate(alert: dict) -> None:
         f"You work in a separate git worktree on the branch {branch}, at commit {commit} (the alerting version, "
         "or main if it is unknown). Commit a fix only on this branch. Do not push, do not deploy, and do not "
         "change anything outside this worktree. The backend tests run with `cd backend && uv run pytest`. "
+        f"For a prod alert, `{PROD_STATUS} [LINES]` shows prod read-only: the fault switch, the health check, "
+        "the running image and the last app log lines (default 100). "
         "End with a short summary: root cause, evidence, and what you changed (or why nothing)."
     )
     log = LOGS / f"{stamp}.jsonl"
