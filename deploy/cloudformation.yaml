@@ -1,7 +1,8 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: >
   ArtMneme on one EC2 server that runs deploy/docker-compose.prod.yaml (app, PostgreSQL, Caddy for HTTPS).
-  Create or update with `make deploy-stack`; put a new app version on it with `make deploy`.
+  Create or update with `make deploy-stack`. New app versions: CI builds and pushes the image (or `make build`),
+  and the workflow "Deploy to prod" (or `make deploy`) starts it on the server.
   Photos are kept in a private S3 bucket. The database password is the SSM SecureString /artmneme/postgres-password
   (see README.md), never in this template.
 

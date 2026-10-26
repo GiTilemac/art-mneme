@@ -337,7 +337,8 @@ Then, from the repository root:
 
 ```bash
 make deploy-stack   # create or update the AWS resources; prints the app address
-make deploy         # build this version, push it and start it on the server
+make build          # build stage: build the committed version, push it to ECR and tag it dev
+make deploy         # deploy stage: start the image tagged dev on the server (or TAG=<image tag>)
 ```
 
 The app is at the `AppUrl` that `make deploy-stack` prints (`https://<address>.sslip.io`). To open a shell on the server, use `aws ssm start-session --target <InstanceId>`; no SSH key is needed.
