@@ -371,6 +371,11 @@ Recorded in:
 frontend/
 ```
 
+Deployment to AWS (2026-10-26):
+
+- Claude compared four AWS options with their costs; the project owner chose one EC2 server running Docker Compose, created with CloudFormation, with photos kept in Cloudflare R2.
+- Claude wrote `deploy/cloudformation.yaml`, `deploy/docker-compose.prod.yaml` (with Caddy for HTTPS), `deploy/Caddyfile`, `deploy/deploy.sh` and the `make deploy-stack` and `make deploy` commands, and checked the template with cfn-lint and AWS's template validation. Creating the AWS resources is left to the project owner.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.

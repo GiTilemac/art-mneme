@@ -7,7 +7,7 @@ TEST_DATABASE_URL ?= postgresql+psycopg://artmneme:artmneme@localhost:$(DB_PORT)
 PHOTO_DIR ?= $(CURDIR)/backend/photos
 export DATABASE_URL TEST_DATABASE_URL PHOTO_DIR
 
-.PHONY: run install migrate test frontend integration e2e
+.PHONY: run install migrate test frontend integration deploy-stack deploy e2e
 
 # Install, bring the schema up to date, and start the API at http://localhost:8000/api
 run: install migrate
@@ -43,3 +43,12 @@ e2e:
 	docker compose down -v
 	docker compose up -d --build
 	cd backend && uv run pytest ../e2e; status=$$?; cd .. && docker compose down -v; exit $$status
+
+# Create or update the AWS stack (deploy/cloudformation.yaml). Needs the AWS CLI configured; see README.md.
+deploy-stack:
+	aws cloudformation deploy --template-file deploy/cloudformation.yaml --stack-name artmneme --capabilities CAPABILITY_IAM
+	aws cloudformation describe-stacks --stack-name artmneme --query "Stacks[0].Outputs" --output table
+
+# Build this version, push it to ECR and start it on the server.
+deploy:
+	deploy/deploy.sh

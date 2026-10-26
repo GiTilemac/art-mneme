@@ -1,0 +1,53 @@
+# Production on the EC2 server (deploy/cloudformation.yaml). `make deploy` copies this file to
+# /opt/artmneme and starts it with an .env file holding IMAGE, APP_HOST, POSTGRES_PASSWORD and the R2 variables.
+# Use a password of letters and digits only: it is part of the database address.
+
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: artmneme
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: artmneme
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "artmneme", "-d", "artmneme"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+  app:
+    image: ${IMAGE}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+psycopg://artmneme:${POSTGRES_PASSWORD}@postgres:5432/artmneme
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID}
+      R2_BUCKET: ${R2_BUCKET}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY}
+
+  # HTTPS in front of the app, with a free Let's Encrypt certificate for APP_HOST.
+  caddy:
+    image: caddy:2.8.4
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      APP_HOST: ${APP_HOST}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  postgres-data:
+  caddy-data:
+  caddy-config:

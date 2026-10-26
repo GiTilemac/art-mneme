@@ -323,6 +323,33 @@ Then open http://localhost:8000. The database and the photos are kept in Docker 
 
 `make e2e` does the same on port 8093, but drives a real browser (Chromium, through pytest-playwright) against the running stack: it registers a user, adds two artworks through the forms and explores relationships, then checks that everything is still there after a reload and in a new session. The tests are in `e2e/`. It needs Docker and Chromium (`cd backend && uv run playwright install chromium`).
 
+## Deploy to AWS
+
+One EC2 server runs `deploy/docker-compose.prod.yaml`: the app, PostgreSQL and Caddy, which gives HTTPS with a free Let's Encrypt certificate. `deploy/cloudformation.yaml` creates everything: the server with a fixed public address, an ECR repository for the image, the server's permissions, a firewall that opens only ports 80 and 443, and a daily disk snapshot kept for 7 days. Photos stay in Cloudflare R2. The cost is about $13 a month.
+
+One-time steps:
+
+1. Configure the AWS CLI (`aws configure`) for a user that may manage CloudFormation, EC2, IAM roles, ECR, SSM and Data Lifecycle Manager. On a personal account, the simplest choice is the `AdministratorAccess` policy. Set an AWS Budgets alarm, for example at $15 a month.
+2. In Cloudflare, create a private R2 bucket and an API token with object read and write rights on that bucket only.
+3. Store the secrets in SSM Parameter Store. Use letters and digits only for the database password:
+
+```bash
+aws ssm put-parameter --type SecureString --name /artmneme/postgres-password --value "$(openssl rand -hex 24)"
+aws ssm put-parameter --type SecureString --name /artmneme/r2-account-id --value <account id>
+aws ssm put-parameter --type SecureString --name /artmneme/r2-bucket --value <bucket name>
+aws ssm put-parameter --type SecureString --name /artmneme/r2-access-key-id --value <access key id>
+aws ssm put-parameter --type SecureString --name /artmneme/r2-secret-access-key --value <secret access key>
+```
+
+Then, from the repository root:
+
+```bash
+make deploy-stack   # create or update the AWS resources; prints the app address
+make deploy         # build this version, push it and start it on the server
+```
+
+Run `make deploy` again for every new version. The app is at the `AppUrl` that `make deploy-stack` prints (`https://<address>.sslip.io`). To open a shell on the server, use `aws ssm start-session --target <InstanceId>`; no SSH key is needed.
+
 ---
 
 # Technology Goals

@@ -1,0 +1,186 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  ArtMneme on one EC2 server that runs deploy/docker-compose.prod.yaml (app, PostgreSQL, Caddy for HTTPS).
+  Create or update with `make deploy-stack`; put a new app version on it with `make deploy`.
+  Secrets are SSM SecureString parameters under /artmneme/ (see README.md), never in this template.
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.micro
+    Description: x86 only; the image is built on an x86 machine.
+  LatestAmi:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+Resources:
+  Repository:
+    Type: AWS::ECR::Repository
+    Properties:
+      RepositoryName: artmneme
+      LifecyclePolicy:
+        LifecyclePolicyText: >-
+          {"rules": [{"rulePriority": 1, "description": "Keep the last 5 images",
+          "selection": {"tagStatus": "any", "countType": "imageCountMoreThan", "countNumber": 5},
+          "action": {"type": "expire"}}]}
+
+  ServerRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: ec2.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        # Session Manager and Run Command instead of SSH.
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Policies:
+        - PolicyName: artmneme-server
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: ecr:GetAuthorizationToken
+                Resource: "*"
+              - Effect: Allow
+                Action: [ecr:BatchGetImage, ecr:GetDownloadUrlForLayer, ecr:BatchCheckLayerAvailability]
+                Resource: !GetAtt Repository.Arn
+              - Effect: Allow
+                Action: ssm:GetParametersByPath
+                Resource: !Sub arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter/artmneme
+
+  ServerProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles: [!Ref ServerRole]
+
+  WebSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: ArtMneme HTTP and HTTPS only (no SSH; use Session Manager)
+      SecurityGroupIngress:
+        - { IpProtocol: tcp, FromPort: 80, ToPort: 80, CidrIp: 0.0.0.0/0 }
+        - { IpProtocol: tcp, FromPort: 443, ToPort: 443, CidrIp: 0.0.0.0/0 }
+
+  Server:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmi
+      InstanceType: !Ref InstanceType
+      IamInstanceProfile: !Ref ServerProfile
+      SecurityGroupIds: [!GetAtt WebSecurityGroup.GroupId]
+      MetadataOptions: { HttpTokens: required }
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs: { VolumeSize: 20, VolumeType: gp3, Encrypted: true }
+      PropagateTagsToVolumeOnCreation: true
+      Tags:
+        - { Key: Name, Value: artmneme }
+        - { Key: Backup, Value: daily }
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+          # Docker and the compose plugin (not packaged for Amazon Linux 2023).
+          dnf install -y docker
+          mkdir -p /usr/local/lib/docker/cli-plugins
+          curl -fsSL -o /usr/local/lib/docker/cli-plugins/docker-compose \
+            https://github.com/docker/compose/releases/download/v2.35.1/docker-compose-linux-x86_64
+          chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+          systemctl enable --now docker
+          # 1 GB of swap: the server has 1 GB of memory.
+          dd if=/dev/zero of=/swapfile bs=1M count=1024 && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+          echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+          mkdir -p /opt/artmneme
+          # start.sh writes .env from SSM and this server's address, logs in to ECR and starts the stack.
+          # `make deploy` copies docker-compose.prod.yaml, Caddyfile and the image name here, then runs it.
+          cat > /opt/artmneme/start.sh <<'SCRIPT'
+          #!/bin/bash
+          set -euo pipefail
+          cd /opt/artmneme
+          [ -f image ] && [ -f docker-compose.prod.yaml ] || { echo "Nothing deployed yet; run make deploy."; exit 0; }
+          token=$(curl -fsS -X PUT http://169.254.169.254/latest/api/token -H "X-aws-ec2-metadata-token-ttl-seconds: 60")
+          ip=$(curl -fsS -H "X-aws-ec2-metadata-token: $token" http://169.254.169.254/latest/meta-data/public-ipv4)
+          {
+            echo "IMAGE=$(cat image)"
+            echo "APP_HOST=${!ip//./-}.sslip.io"
+            # /artmneme/r2-access-key-id becomes R2_ACCESS_KEY_ID, and so on.
+            aws ssm get-parameters-by-path --region ${AWS::Region} --path /artmneme --with-decryption \
+              --query 'Parameters[].[Name,Value]' --output text |
+              while IFS=$'\t' read -r name value; do
+                key=$(basename "$name" | tr 'a-z-' 'A-Z_'); echo "$key=$value"
+              done
+          } > .env
+          chmod 600 .env
+          aws ecr get-login-password --region ${AWS::Region} |
+            docker login --username AWS --password-stdin ${AWS::AccountId}.dkr.ecr.${AWS::Region}.amazonaws.com
+          docker compose -f docker-compose.prod.yaml --env-file .env pull --quiet
+          docker compose -f docker-compose.prod.yaml --env-file .env up -d --remove-orphans
+          docker image prune -f
+          SCRIPT
+          chmod +x /opt/artmneme/start.sh
+
+          # Start the stack again after every reboot.
+          cat > /etc/systemd/system/artmneme.service <<'UNIT'
+          [Unit]
+          Description=ArtMneme
+          After=docker.service network-online.target
+          Requires=docker.service
+          Wants=network-online.target
+          [Service]
+          Type=oneshot
+          RemainAfterExit=true
+          ExecStart=/opt/artmneme/start.sh
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+          systemctl daemon-reload
+          systemctl enable artmneme.service
+
+  PublicAddress:
+    Type: AWS::EC2::EIP
+    Properties:
+      InstanceId: !Ref Server
+
+  # Daily snapshot of the server disk (PostgreSQL data included), the last 7 kept.
+  BackupRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal: { Service: dlm.amazonaws.com }
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - !Sub arn:${AWS::Partition}:iam::aws:policy/service-role/AWSDataLifecycleManagerServiceRole
+
+  DailyBackup:
+    Type: AWS::DLM::LifecyclePolicy
+    Properties:
+      Description: ArtMneme daily disk snapshot - 7 kept
+      State: ENABLED
+      ExecutionRoleArn: !GetAtt BackupRole.Arn
+      PolicyDetails:
+        ResourceTypes: [VOLUME]
+        TargetTags:
+          - { Key: Backup, Value: daily }
+        Schedules:
+          - Name: daily
+            CreateRule: { Interval: 24, IntervalUnit: HOURS, Times: ["03:00"] }
+            RetainRule: { Count: 7 }
+            CopyTags: true
+
+Outputs:
+  AppUrl:
+    Description: The app, with a Let's Encrypt certificate (sslip.io turns the address into a hostname).
+    Value: !Sub
+      - https://${Host}.sslip.io
+      - Host: !Join ["-", !Split [".", !Ref PublicAddress]]
+  RepositoryUri:
+    Value: !GetAtt Repository.RepositoryUri
+  InstanceId:
+    Value: !Ref Server

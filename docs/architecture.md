@@ -205,6 +205,8 @@ Frontend:  served at /
 API:       served at /api
 ```
 
+Hosting (decided by the project owner on 2026-10-26): AWS, one EC2 server created with CloudFormation (`deploy/cloudformation.yaml`). It runs Docker Compose with the app container, PostgreSQL and Caddy for HTTPS (`deploy/docker-compose.prod.yaml`). Images are kept in ECR, secrets in SSM Parameter Store, and the disk is snapshotted daily. Photos stay in Cloudflare R2.
+
 ---
 
 ## Test Tools
