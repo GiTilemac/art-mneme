@@ -20,6 +20,7 @@ from starlette.datastructures import UploadFile
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 import photos
+import telemetry
 from db import get_engine
 
 app = FastAPI(
@@ -28,6 +29,7 @@ app = FastAPI(
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json",
 )
+tracer_provider = telemetry.instrument(app)
 
 SESSION_COOKIE = "session"
 SESSION_DAYS = 30

@@ -19,6 +19,9 @@ RUN uv sync --frozen --no-dev
 COPY backend/ ./
 COPY --from=frontend /frontend/.output/public /app/frontend
 ENV FRONTEND_DIR=/app/frontend
+# The deployed version for telemetry: deploy/build.sh passes the image tag. Last, so it does not undo the build cache.
+ARG APP_VERSION=unknown
+ENV APP_VERSION=$APP_VERSION
 EXPOSE 8000
 # Bring the database schema up to date, then start the server.
 CMD ["sh", "-c", "uv run --no-sync alembic upgrade head && uv run --no-sync uvicorn main:app --host 0.0.0.0 --port 8000"]

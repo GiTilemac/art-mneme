@@ -10,7 +10,7 @@ repository=$(aws cloudformation describe-stacks --stack-name "$STACK" \
   --query "Stacks[0].Outputs[?OutputKey=='RepositoryUri'].OutputValue" --output text)
 tag=$(date -u +%Y%m%d-%H%M%S)-$(git rev-parse HEAD | cut -c1-7)
 
-docker build -t "$repository:$tag" .
+docker build --build-arg APP_VERSION="$tag" -t "$repository:$tag" .
 aws ecr get-login-password | docker login --username AWS --password-stdin "${repository%%/*}"
 docker push "$repository:$tag"
 
