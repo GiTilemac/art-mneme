@@ -21,7 +21,6 @@ When a new service is added (for example Grafana Cloud for observability), add a
 | Create or update | `README.md` > Deploy to AWS (`make deploy-stack`, then `make deploy`). |
 | Access to the server | `aws ssm start-session --target <InstanceId>` (Session Manager, no SSH). |
 | Remove | Delete the stack `artmneme`. The photo bucket is kept on purpose and must be emptied and deleted by hand. The disk snapshots are deleted with their policy; delete any left ones by hand. |
-
 | GitHub Actions access | Stack `artmneme-github-production` (`deploy/github-oidc.yaml`): the GitHub OIDC provider and the role that the `deploy` job uses. Only the GitHub environment `production` of `GiTilemac/art-mneme` may use it; it may only push to the ECR repository, read the app stack and run commands on that stack's server. |
 
 ### Third parties used by the AWS setup (no account)
