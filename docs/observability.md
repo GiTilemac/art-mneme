@@ -219,7 +219,19 @@ service.version               the image tag, e.g. 20261026-155049-1ae1c7e
 
 Local stack (2026-10-26): `observability/docker-compose.yaml`, a separate Compose project. The OpenTelemetry Collector receives OTLP (ports 4317, 4318) and sends traces to Tempo, metrics to Prometheus (its OTLP receiver; `service.name`, `service.version` and `deployment.environment.name` become labels) and logs to Loki. Grafana has the three data sources.
 
-Not yet: logs through OpenTelemetry, the business metrics (Artworks Created, Relationship Explorations, Watchlist Conversions), dashboards and alerts, and an observability stack for prod.
+Application metrics (decided by the project owner on 2026-10-26), in Prometheus with `_total` added to counters:
+
+```text
+artmneme.artworks.created             counter  state: COLLECTION | WATCHLIST
+artmneme.artworks.creation_failures   counter  reason: invalid (422) | storage (503) | error (500); not counted without login
+artmneme.photos.uploaded              counter  kind: create | replace | watchlist_conversion   (Watchlist Conversions)
+artmneme.relationship.explorations    counter  by: artist | subject | movement | museum
+artmneme.users.active                 gauge    users with a request in the last 15 minutes  (Active Users)
+```
+
+Artwork Creation Failure Rate = creation_failures / (created + creation_failures).
+
+Not yet: logs through OpenTelemetry, dashboards and alerts, and an observability stack for prod.
 
 ---
 

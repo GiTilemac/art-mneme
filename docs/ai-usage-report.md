@@ -397,6 +397,10 @@ Local observability stack (2026-10-26):
 
 - At the project owner's request, Claude created `observability/` as a separate Compose project (OpenTelemetry Collector, Prometheus, Loki, Tempo, Grafana with provisioned data sources) and the `make observability` commands, and checked it end to end: a local backend's traces arrived in Tempo and its metrics in Prometheus, labelled with version and environment.
 
+Application metrics (2026-10-26):
+
+- Claude mapped a list of example metrics to ArtMneme; the project owner chose artworks created, artwork creation failures, photos uploaded (for "canvas elements"), active users and relationship explorations. Claude added them to `backend/telemetry.py` and `backend/main.py`, with tests, and checked that they arrive in the local Prometheus with environment and version.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.

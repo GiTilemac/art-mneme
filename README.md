@@ -249,7 +249,7 @@ The backend sends OpenTelemetry traces and HTTP metrics for every request (`back
 | `DEPLOYMENT_ENVIRONMENT` | the backend | `deployment.environment.name`: `prod` on AWS (set in `deploy/docker-compose.prod.yaml`); `local` when not set |
 | `APP_VERSION` | the backend | `service.version`: the image tag, written into the image by `deploy/build.sh`; `unknown` when not set |
 
-`service.name` is always `artmneme-backend`.
+`service.name` is always `artmneme-backend`. The application metrics (artworks created, creation failures, photos uploaded, relationship explorations, active users) are listed in `docs/observability.md` > Telemetry.
 
 ### Local observability stack
 
