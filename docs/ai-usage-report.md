@@ -309,6 +309,17 @@ backend/
 product-spec.md
 ```
 
+Artwork photo upload and replace (backlog task 10, GitHub issue #12):
+
+- The project owner groomed the task and decided, on 2026-10-25: the replace order (new photo saved first, then the row, then the old file deleted), an upload that still succeeds when the old file cannot be deleted, `404` "Photo not found." for an artwork without a photo, "Choose a photo to upload." when no photo file is sent, reading the whole photo before answering so a storage failure gives a clean `503`, and the caching rule (`immutable` only with the current `?v=`, otherwise `no-store`).
+- Claude wrote `PUT` and `GET /api/artworks/{artwork_id}/photo` in `backend/main.py`, reusing the ownership check of #8, the photo module of #6 and the `Artwork` builder of #7, and wrote one test per rule in `backend/tests/test_artwork_photo.py`. The full suite passes (968 tests).
+
+Recorded in:
+
+```text
+backend/
+```
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
