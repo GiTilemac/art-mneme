@@ -47,9 +47,9 @@ A short path through ArtMneme for a reviewer: where each grading criterion is sh
 The last changes (one test command, structured logs, this guide) were made just before delivery. If something in `main` does not work, two tagged versions are known to work:
 
 - **`prod-20261026`** (`5db5c27`): the last version that CI tested and that runs on prod (image `20261026-175010-5db5c27`).
-- **`stable-before-criteria`** (`7ca0163`): the code just before those last changes, with the frontend screen tests; all tests passed locally.
+- **`stable-before-criteria`** (`7ca0163`): the code just before those last changes, with the frontend screen tests; all tests passed locally. Its image is in ECR as `20261026-202429-7ca0163`.
 
-`git checkout prod-20261026` (or `stable-before-criteria`), then `docker compose up --build` and `make test-all` as above.
+`git checkout prod-20261026` (or `stable-before-criteria`), then `docker compose up --build` and `make test-all` as above. To put one of them on prod: "Deploy to prod" with its image tag (`20261026-175010-5db5c27` or `20261026-202429-7ca0163`).
 
 ## Decisions and limits
 
