@@ -203,6 +203,11 @@ def refuse_characters_not_allowed(name: str, label: str = "Name", allowed: str =
         raise HTTPException(status_code=422, detail=f"{label} contains characters that are not allowed.")
 
 
+def contains_pattern(text: str) -> str:
+    """A LIKE pattern finding `text` anywhere; `%`, `_` and `\\` are matched as themselves."""
+    return "%" + text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+
+
 def checked_name(name: str) -> str:
     """The cleaned name, or 422 when it breaks a rule."""
     name = cleaned(name)
@@ -226,8 +231,7 @@ def add_entity_endpoints(table: str) -> None:
     ):
         q = cleaned(q)
         refuse_characters_not_allowed(q)
-        # `%`, `_` and `\` are matched as themselves.
-        pattern = "%" + q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+        pattern = contains_pattern(q)
         total = connection.execute(
             text(f"SELECT count(*) FROM {table} WHERE lower(name) LIKE lower(:pattern)"), {"pattern": pattern}
         ).scalar()
@@ -784,25 +788,90 @@ def get_photo(
     return Response(data, media_type="image/jpeg", headers={"Cache-Control": cache})
 
 
+SEARCH_MAX_LENGTH = 200
+BAD_FILTER = "Filter values are not valid."
+WHOLE_NUMBER = re.compile(r"-?[0-9]+")
+# A word of the search is found in any of these; each is a condition on the artwork `a`.
+SEARCHED = (
+    "lower(a.title) LIKE lower(:{p})",
+    "lower(a.museum) LIKE lower(:{p})",
+    "EXISTS (SELECT 1 FROM artists WHERE artists.id = a.artist_id AND lower(artists.name) LIKE lower(:{p}))",
+    "EXISTS (SELECT 1 FROM subjects WHERE subjects.id = a.subject_id AND lower(subjects.name) LIKE lower(:{p}))",
+    "EXISTS (SELECT 1 FROM artwork_tags JOIN tags ON tags.id = tag_id "
+    "WHERE artwork_id = a.id AND lower(tags.name) LIKE lower(:{p}))",
+)
+
+
+def filter_id(value: str) -> int:
+    if not (value.isascii() and WHOLE_NUMBER.fullmatch(value)) or not -INT_MAX - 1 <= int(value) <= INT_MAX:
+        raise HTTPException(status_code=422, detail=BAD_FILTER)
+    return int(value)
+
+
+def filter_year(params, name: str) -> int | None:
+    """The signed year of `from` or `to` (BC negative), or None when not given; checked as #7 checks a date."""
+    year, bc = params.get(f"{name}_year"), params.get(f"{name}_bc", "false")
+    if bc not in ("true", "false") or (year is not None and not (year.isascii() and year.isdigit())):
+        raise HTTPException(status_code=422, detail=BAD_FILTER)
+    if year is None:
+        return None
+    if not 1 <= int(year) <= MAX_BC_YEAR:
+        raise HTTPException(status_code=422, detail=BAD_FILTER)
+    return checked_date(DateInput(from_year=int(year), from_bc=bc == "true"))[0]
+
+
+def search_conditions(params) -> tuple[list[str], dict]:
+    """The SQL conditions for `q` and the filters, with their values. Values are never put into the SQL text."""
+    conditions, values = [], {}
+    words = checked_text(params.get("q", ""), "Search", SEARCH_MAX_LENGTH).split(" ")
+    for i, word in enumerate(word for word in words if word):
+        conditions.append("(" + " OR ".join(field.format(p=f"word{i}") for field in SEARCHED) + ")")
+        values[f"word{i}"] = contains_pattern(word)
+    for name in ("artist_id", "movement_id"):
+        if name in params:
+            conditions.append(f"a.{name} = :{name}")
+            values[name] = filter_id(params[name])
+    museum = checked_text(params.get("museum", ""), "Museum", MUSEUM_MAX_LENGTH)
+    if museum:
+        conditions.append("lower(a.museum) = lower(:museum)")
+        values["museum"] = museum
+    for i, tag_id in enumerate(params.getlist("tag_ids")):
+        conditions.append(f"EXISTS (SELECT 1 FROM artwork_tags WHERE artwork_id = a.id AND tag_id = :tag{i})")
+        values[f"tag{i}"] = filter_id(tag_id)
+    from_year, to_year = filter_year(params, "from"), filter_year(params, "to")
+    if from_year is not None and to_year is not None and to_year < from_year:
+        raise HTTPException(status_code=422, detail="The end year cannot be before the start year.")
+    # The artwork's years overlap the asked range; one year (no year_end) counts as that year.
+    if from_year is not None:
+        conditions.append("coalesce(a.year_end, a.year_start) >= :from_year")
+        values["from_year"] = from_year
+    if to_year is not None:
+        conditions.append("a.year_start <= :to_year")
+        values["to_year"] = to_year
+    return conditions, values
+
+
 @app.get("/api/artworks")
-def list_artworks(
-    state: str | None = None,
-    page: int = Query(1, ge=1),
-    user: dict = Depends(current_user),
-    connection: Connection = Depends(get_connection),
-):
-    """One page of the user's own artworks of one state, newest first. Search and filters come with task 13."""
+def list_artworks(request: Request, user: dict = Depends(current_user), connection: Connection = Depends(get_connection)):
+    """One page of the user's own artworks of one state, newest first, narrowed by `q` and the filters."""
+    params = request.query_params
+    state = params.get("state")
     if state not in ("COLLECTION", "WATCHLIST"):
         raise HTTPException(status_code=422, detail="Choose Collection or Watchlist.")
-    where = "user_id = :user_id AND collection_state = :state"
-    values = {"user_id": user["id"], "state": state}
-    total = connection.execute(text(f"SELECT count(*) FROM artworks WHERE {where}"), values).scalar()
+    page = params.get("page", "1")
+    if not (page.isascii() and page.isdigit() and int(page) >= 1):
+        raise HTTPException(status_code=422, detail="Page must be a whole number of 1 or more.")
+    page = int(page)
+    conditions, values = search_conditions(params)
+    where = " AND ".join(["a.user_id = :user_id", "a.collection_state = :state", *conditions])
+    values.update(user_id=user["id"], state=state)
+    total = connection.execute(text(f"SELECT count(*) FROM artworks a WHERE {where}"), values).scalar()
     offset = (page - 1) * PAGE_SIZE
     ids = []
     # A page after the last is empty; not asking the database also keeps a huge offset away from it.
     if offset < total:
         ids = connection.execute(
-            text(f"SELECT id FROM artworks WHERE {where} ORDER BY created_at DESC, id DESC LIMIT :limit OFFSET :offset"),
+            text(f"SELECT a.id FROM artworks a WHERE {where} ORDER BY a.created_at DESC, a.id DESC LIMIT :limit OFFSET :offset"),
             {**values, "limit": PAGE_SIZE, "offset": offset},
         ).scalars().all()
     return {
