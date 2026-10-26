@@ -149,6 +149,8 @@ Same Museum
 Shared Tags
 ```
 
+Shared Tags comes in a later version.
+
 Purpose:
 
 ```text

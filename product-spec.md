@@ -589,6 +589,8 @@ Never publicly shared
 
 ## Detail Photos
 
+Not part of v1. In v1 an artwork has only its artwork photo. A later version adds detail photos: this section describes them.
+
 Each artwork may contain:
 
 ```text
@@ -660,6 +662,8 @@ Delete Artwork
 
 Explore Relationships
 ```
+
+Detail Photos and their actions come in a later version.
 
 ---
 
@@ -849,9 +853,13 @@ Same Museum
 Shared Tags
 ```
 
+Shared Tags comes in a later version.
+
 ---
 
 ## Tag Exploration
+
+Not part of v1: it comes in a later version.
 
 Users may progressively narrow exploration.
 
@@ -975,6 +983,8 @@ Date
 
 # Duplicate Handling
 
+Not part of v1: duplicate warnings come in a later version.
+
 Duplicate detection uses:
 
 ```text
@@ -1087,6 +1097,8 @@ Given detail photos are uploaded
 
 Then they are attached to the artwork.
 
+Not part of v1.
+
 ---
 
 Given duplicate detection finds a match
@@ -1094,6 +1106,8 @@ Given duplicate detection finds a match
 Then a warning is displayed.
 
 Artwork creation remains possible.
+
+Not part of v1.
 
 ---
 
@@ -1116,6 +1130,8 @@ Shared Tags
 ```
 
 Then matching artworks are displayed.
+
+Shared Tags is not part of v1.
 
 ---
 

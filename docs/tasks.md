@@ -39,17 +39,9 @@ Description: Implement the create-artwork endpoint from `openapi.yaml`; details,
 Goal: A user can fetch, edit and hard-delete their own artworks, and nobody else's.
 Description: Implement the endpoints in `openapi.yaml` to fetch one artwork, update its metadata, notes and tags, and delete it. Deleting removes the artwork, its detail photos (including the stored files) and its tag links, as `docs/database-schema.md` describes. Another user's artwork behaves as if it does not exist.
 
-## 9. Duplicate warning
-Goal: Before saving, the app can ask whether the user already has an artwork with the same title, artist and date, and show a warning; saving is still allowed.
-Description: Implement the duplicate-check endpoint from `openapi.yaml`, which the app calls before saving to find possible duplicates based on Title + Artist + Date, as `product-spec.md` describes under Duplicate Handling. The warning never blocks creation, and no uniqueness rule is added to the database.
-
 ## 10. Artwork photo upload and replace (watchlist to collection)
 Goal: Uploading a photo to a watchlist artwork moves it into the collection; uploading to a collection artwork replaces its photo.
 Description: Implement the endpoint in `openapi.yaml` to upload an artwork's main photo, and the one to get it. If the artwork is WATCHLIST, it becomes COLLECTION; if it already had a photo, that photo is deleted. If it is already COLLECTION, the old photo file is replaced and removed from storage. There is no way to remove the main photo without a replacement, and a COLLECTION artwork can never move back to WATCHLIST. A collection artwork can never end up without a photo.
-
-## 11. Detail photos API
-Goal: A user can add, list and delete any number of detail photos on their own artworks.
-Description: Implement the detail-photo endpoints in `openapi.yaml`, using the `DetailPhoto` table from `docs/database-schema.md`. Detail photos are private: they are only ever shown to the artwork's owner and never appear in community results. Deleting a detail photo also deletes the stored file.
 
 ## 12. Artwork list API
 Goal: A user can list their collection or their watchlist, newest first, 50 per page.
@@ -63,15 +55,23 @@ Description: Add search over Title, Artist, Subject, Tags and Museum, and filter
 Goal: From one artwork, a user can list other artworks with the same artist, subject, movement or museum.
 Description: Implement the exploration endpoint from `openapi.yaml`, using the mapping in `docs/database-schema.md` under Relationship Exploration Mapping. Only the user's own artworks are searched: results come from the collection by default; watchlist results are included only when asked for. Community results come in a later version.
 
-## 16. Shared tags exploration API
-Goal: A user can find artworks that carry all of a chosen set of tags.
-Description: Extend relationship exploration with Shared Tags, where results must match every selected tag (battle + horse + armor). It uses the same sources as the other exploration modes (collection by default; watchlist on request).
-
 ---
 
 # Later version
 
-Not part of v1. Postponed by the project owner on 2026-10-26: community, including discoverability. In v1 every artwork and its notes stay private.
+Not part of v1. Postponed by the project owner on 2026-10-26 to save credits: community, including discoverability (in v1 every artwork and its notes stay private), duplicate warnings, detail photos and shared-tags exploration.
+
+## 9. Duplicate warning
+Goal: Before saving, the app can ask whether the user already has an artwork with the same title, artist and date, and show a warning; saving is still allowed.
+Description: Implement the duplicate-check endpoint (removed from `openapi.yaml` for v1; added back first, with the project owner's approval), which the app calls before saving to find possible duplicates based on Title + Artist + Date, as `product-spec.md` describes under Duplicate Handling. The warning never blocks creation, and no uniqueness rule is added to the database.
+
+## 11. Detail photos API
+Goal: A user can add, list and delete any number of detail photos on their own artworks.
+Description: Implement the detail-photo endpoints (removed from `openapi.yaml` for v1; added back first, with the project owner's approval), using the `DetailPhoto` table from `docs/database-schema.md`. Detail photos are private: they are only ever shown to the artwork's owner and never appear in community results. Deleting a detail photo also deletes the stored file.
+
+## 16. Shared tags exploration API
+Goal: A user can find artworks that carry all of a chosen set of tags.
+Description: Extend relationship exploration with Shared Tags (`by=tags` and `tag_ids`, removed from `openapi.yaml` for v1; added back first, with the project owner's approval), where results must match every selected tag (battle + horse + armor). It uses the same sources as the other exploration modes (collection by default; watchlist on request).
 
 ## 14. Discoverability API
 Goal: A user can make an artwork discoverable, and separately make its notes discoverable.

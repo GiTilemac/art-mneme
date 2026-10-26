@@ -91,6 +91,8 @@ Same Museum
 Shared Tags
 ```
 
+Shared Tags comes in a later version.
+
 ---
 
 ## Metadata-First Community Layer
@@ -333,6 +335,8 @@ Edit Notes
 Explore Relationships
 ```
 
+Detail Photos and their actions come in a later version.
+
 ---
 
 # Backend Layer
@@ -374,6 +378,8 @@ state transitions.
 ---
 
 ## Duplicate Detection
+
+Not part of v1.
 
 Responsible for evaluating:
 

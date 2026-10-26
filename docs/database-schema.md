@@ -275,6 +275,8 @@ Metadata enriches the artwork but does not define identity.
 
 ## Duplicate Detection
 
+Not part of v1: duplicate warnings come in a later version.
+
 Based on:
 
 ```text
@@ -558,6 +560,8 @@ One link per artwork and tag: the same tag cannot be added twice to the same art
 
 # DetailPhoto
 
+Not part of v1: the table exists but stays empty until a later version adds detail photos.
+
 Represents detail images attached to an artwork.
 
 Examples:
@@ -749,7 +753,7 @@ Notes
 | Same Subject | subject_id |
 | Same Movement | movement_id |
 | Same Museum | museum |
-| Shared Tags | ArtworkTag |
+| Shared Tags | ArtworkTag (later version, not part of v1) |
 
 ---
 

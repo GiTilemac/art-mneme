@@ -377,67 +377,6 @@ paths:
         "503":
           $ref: "#/components/responses/StorageUnavailable"
 
-  /artworks/duplicates:
-    get:
-      tags: [Artworks]
-      summary: Find possible duplicates before saving
-      description: |
-        The user's own artworks (collection and watchlist) with the same title
-        (ignoring capital letters and extra spaces), the same artist and the
-        same date (same years, same Circa and BC choices).
-        Returns an empty list unless title, artist and date are all given.
-        Never blocks saving.
-      parameters:
-        - name: title
-          in: query
-          schema:
-            type: string
-        - name: artist_id
-          in: query
-          schema:
-            type: integer
-        - name: from_year
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-        - name: to_year
-          in: query
-          schema:
-            type: integer
-            minimum: 1
-        - name: circa
-          in: query
-          schema:
-            type: boolean
-            default: false
-        - name: from_bc
-          in: query
-          schema:
-            type: boolean
-            default: false
-        - name: to_bc
-          in: query
-          schema:
-            type: boolean
-            default: false
-        - name: exclude_id
-          in: query
-          description: Leave out this artwork, used while editing it.
-          schema:
-            type: integer
-      responses:
-        "200":
-          description: Possible duplicates; empty when there are none.
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/Artwork"
-        "401":
-          $ref: "#/components/responses/NotLoggedIn"
-
   /artworks/{artwork_id}:
     parameters:
       - $ref: "#/components/parameters/ArtworkId"
@@ -544,69 +483,6 @@ paths:
         "503":
           $ref: "#/components/responses/StorageUnavailable"
 
-  /artworks/{artwork_id}/detail-photos:
-    parameters:
-      - $ref: "#/components/parameters/ArtworkId"
-    post:
-      tags: [Photos]
-      summary: Add a detail photo
-      requestBody:
-        $ref: "#/components/requestBodies/PhotoUpload"
-      responses:
-        "201":
-          description: The updated artwork, including the new detail photo.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Artwork"
-        "401":
-          $ref: "#/components/responses/NotLoggedIn"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "422":
-          $ref: "#/components/responses/Invalid"
-        "503":
-          $ref: "#/components/responses/StorageUnavailable"
-
-  /artworks/{artwork_id}/detail-photos/{photo_id}:
-    parameters:
-      - $ref: "#/components/parameters/ArtworkId"
-      - name: photo_id
-        in: path
-        required: true
-        schema:
-          type: integer
-    get:
-      tags: [Photos]
-      summary: Get a detail photo
-      description: Only the owner can get it.
-      responses:
-        "200":
-          $ref: "#/components/responses/Photo"
-        "401":
-          $ref: "#/components/responses/NotLoggedIn"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "503":
-          $ref: "#/components/responses/StorageUnavailable"
-    delete:
-      tags: [Photos]
-      summary: Delete a detail photo
-      description: Also deletes the stored file.
-      responses:
-        "200":
-          description: The updated artwork.
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Artwork"
-        "401":
-          $ref: "#/components/responses/NotLoggedIn"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "503":
-          $ref: "#/components/responses/StorageUnavailable"
-
   /artworks/{artwork_id}/related:
     parameters:
       - $ref: "#/components/parameters/ArtworkId"
@@ -614,8 +490,7 @@ paths:
       tags: [Exploration]
       summary: Explore related artworks
       description: |
-        Artworks with the same artist, subject, movement or museum as this one,
-        or carrying all of the chosen tags.
+        Artworks with the same artist, subject, movement or museum as this one.
         Only the user's own artworks: collection results by default, watchlist only when asked.
       parameters:
         - name: by
@@ -623,16 +498,7 @@ paths:
           required: true
           schema:
             type: string
-            enum: [artist, subject, movement, museum, tags]
-        - name: tag_ids
-          in: query
-          description: Required when `by` is `tags`. Results must carry all of them.
-          style: form
-          explode: true
-          schema:
-            type: array
-            items:
-              type: integer
+            enum: [artist, subject, movement, museum]
         - name: include_collection
           in: query
           schema:
@@ -952,7 +818,7 @@ components:
             Null when there is no artwork photo. Otherwise a short text that changes every time the photo is uploaded or replaced. Send it as `?v=` to /artworks/{artwork_id}/photo so the browser may keep an unchanged photo.
         detail_photo_ids:
           type: array
-          description: Get each from /artworks/{artwork_id}/detail-photos/{photo_id}.
+          description: Always empty in v1. Detail photos come in a later version.
           items:
             type: integer
         is_discoverable:

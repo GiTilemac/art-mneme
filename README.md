@@ -36,9 +36,9 @@ Edit artworks
 Delete artworks
 
 Upload artwork photos
-
-Upload detail photos
 ```
+
+Detail photos come in a later version.
 
 ---
 
@@ -79,7 +79,7 @@ Same Museum
 Shared Tags
 ```
 
-Tag exploration supports progressive filtering:
+Shared Tags and tag exploration come in a later version. Tag exploration supports progressive filtering:
 
 ```text
 battle

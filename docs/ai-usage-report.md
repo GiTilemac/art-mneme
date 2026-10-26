@@ -324,6 +324,21 @@ docs/
 README.md
 ```
 
+Duplicate warnings, detail photos and shared-tags exploration postponed (backlog rework, 2026-10-26):
+
+- The project owner decided on 2026-10-26 to postpone every whole issue Claude had listed as postponable: #9 duplicate warning, #13 detail photos and task 16 shared-tags exploration, and to keep #15 search and filter whole. Built parts (the `detail_photos` table, `Artwork.detail_photo_ids`, the #8 delete of detail photos) stay as they are.
+- Claude removed the duplicate-check and detail-photo endpoints and `by=tags`/`tag_ids` from `openapi.yaml`, marked those parts of `product-spec.md`, `docs/database-schema.md`, `docs/architecture.md`, `docs/observability.md` and `README.md` as not part of v1, and moved tasks 9, 11 and 16 to the Later version section of `docs/tasks.md`.
+- Claude updated GitHub issues #9 and #13 (postponed), #19 (no shared tags), #11 (hide the duplicate warning and detail photos) and #14 (a note about the removed detail-photo operations).
+
+Recorded in:
+
+```text
+openapi.yaml
+product-spec.md
+docs/
+README.md
+```
+
 ---
 
 # AI Contributions
