@@ -259,6 +259,8 @@ The backend sends OpenTelemetry traces and HTTP metrics for every request (`back
 2. Start the backend with `OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 make run`.
 3. Open Grafana at http://localhost:3000 (no login locally). Traces are under Explore > Tempo; metrics under Explore > Prometheus, e.g. `http_server_duration_milliseconds_count`, with the labels `service_version` and `deployment_environment_name`.
 
+The dashboard "ArtMneme application metrics" (folder ArtMneme) shows the application metrics as totals for the chosen time range and over time, with filters for Environment and Version at the top. It is loaded from `observability/grafana/dashboards/artmneme-app.json`; change it there, not in Grafana.
+
 `make observability-down` stops it; the data stays in Docker volumes (7 days). The backend does not send logs yet, so Loki stays empty.
 
 ## Photo storage

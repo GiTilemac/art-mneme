@@ -231,6 +231,10 @@ artmneme.users.active                 gauge    users with a request in the last 
 
 Artwork Creation Failure Rate = creation_failures / (created + creation_failures).
 
+At start, the backend reports every counter's known label values as 0, so Prometheus' `increase()` also counts the first event after a start or deploy.
+
+Dashboard: "ArtMneme application metrics" (`observability/grafana/dashboards/artmneme-app.json`, loaded at Grafana start): totals for the time range (artworks created, failures, failure rate, photos, explorations, active users) and the same over time by label, filtered by Environment and Version.
+
 Not yet: logs through OpenTelemetry, dashboards and alerts, and an observability stack for prod.
 
 ---
