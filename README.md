@@ -295,6 +295,18 @@ export TEST_DATABASE_URL=postgresql+psycopg://artmneme:artmneme@localhost:5432/a
 uv run pytest
 ```
 
+
+## Docker
+
+One image holds the backend and the built frontend. The backend serves the API at `/api` and the frontend at `/`.
+
+```bash
+docker build -t artmneme .
+docker run -p 8000:8000 -e DATABASE_URL=... -e PHOTO_DIR=/photos artmneme
+```
+
+`DATABASE_URL` must reach the database from inside the container. Use the four R2 variables instead of `PHOTO_DIR` in production. At start the container brings the database schema up to date.
+
 ---
 
 # Technology Goals
