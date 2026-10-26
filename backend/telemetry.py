@@ -82,6 +82,15 @@ def instrument(app: FastAPI, extra_readers: Iterable[MetricReader] = ()) -> Trac
     relationship_explorations = meter.create_counter(
         "artmneme.relationship.explorations", description="Relationship explorations"
     )
+    # Report every label value as 0 at start: Prometheus' increase() cannot see a first sample that is already 1.
+    for counter, label, values in (
+        (artworks_created, "state", ("COLLECTION", "WATCHLIST")),
+        (artwork_creation_failures, "reason", ("invalid", "storage", "error")),
+        (photos_uploaded, "kind", ("create", "replace", "watchlist_conversion")),
+        (relationship_explorations, "by", ("artist", "subject", "movement", "museum")),
+    ):
+        for value in values:
+            counter.add(0, {label: value})
     meter.create_observable_gauge(
         "artmneme.users.active", callbacks=[active_users], description=f"Users active in the last {ACTIVE_MINUTES} minutes"
     )
