@@ -315,14 +315,30 @@ paths:
               type: integer
         - name: from_year
           in: query
-          description: Start of the date range. BC years are negative (450 BC = -450).
+          description: Start of the date range. Counts only with a number; BC is chosen with from_bc, never with a negative number.
           schema:
             type: integer
+            minimum: 1
+            maximum: 100000
+        - name: from_bc
+          in: query
+          description: The start year is BC.
+          schema:
+            type: boolean
+            default: false
         - name: to_year
           in: query
-          description: End of the date range. BC years are negative.
+          description: End of the date range.
           schema:
             type: integer
+            minimum: 1
+            maximum: 100000
+        - name: to_bc
+          in: query
+          description: The end year is BC.
+          schema:
+            type: boolean
+            default: false
         - $ref: "#/components/parameters/Page"
       responses:
         "200":
