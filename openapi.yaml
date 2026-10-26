@@ -510,6 +510,7 @@ paths:
       description: |
         Artworks with the same artist, subject, movement or museum as this one.
         Only the user's own artworks: collection results by default, watchlist only when asked.
+        Each source returns at most 50 artworks, newest first (highest id first on ties).
       parameters:
         - name: by
           in: query
