@@ -12,7 +12,7 @@ export DATABASE_URL TEST_DATABASE_URL PHOTO_DIR
 TELEMETRY ?=
 SSM_PROFILE ?= artmneme-deploy
 
-.PHONY: run install migrate test frontend integration deploy-stack build deploy e2e deploy-ci-role observability observability-down grafana-cloud on-call trigger-alert fault-on fault-off
+.PHONY: run install migrate test test-all test-frontend frontend integration deploy-stack build deploy e2e deploy-ci-role observability observability-down grafana-cloud on-call trigger-alert fault-on fault-off
 
 # Install, bring the schema up to date, and start the API at http://localhost:8000/api.
 # With telemetry: `make run TELEMETRY=local` or `make run TELEMETRY=cloud` (environment "dev").
@@ -38,6 +38,13 @@ migrate:
 
 test:
 	cd backend && uv run pytest
+
+# Every test in one command: backend unit tests, frontend tests, integration tests, end-to-end tests.
+# Needs the local PostgreSQL (for TEST_DATABASE_URL) and Docker; stops at the first failing stage.
+test-all: test test-frontend integration e2e
+
+test-frontend:
+	cd frontend && npm test
 
 # Start the frontend (in a second terminal, while `make run` is running); it passes /api calls to the backend.
 frontend:

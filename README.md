@@ -358,6 +358,12 @@ export TEST_DATABASE_URL=postgresql+psycopg://artmneme:artmneme@localhost:5432/a
 uv run pytest
 ```
 
+All tests in one command (backend unit tests, frontend tests, integration tests and end-to-end tests; needs Docker too):
+
+```bash
+make test-all
+```
+
 
 ## Docker
 
