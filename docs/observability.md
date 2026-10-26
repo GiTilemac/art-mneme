@@ -235,7 +235,9 @@ At start, the backend reports every counter's known label values as 0, so Promet
 
 Dashboard: "ArtMneme application metrics" (`observability/grafana/dashboards/artmneme-app.json`, loaded at Grafana start): totals for the time range (artworks created, failures, failure rate, photos, explorations, active users) and the same over time by label, filtered by Environment and Version.
 
-Not yet: logs through OpenTelemetry, dashboards and alerts, and an observability stack for prod.
+Shared stack (2026-10-26): dev and prod send to Grafana Cloud (`README.md` > Telemetry > Grafana Cloud); the dashboard file works there through its "Data source" filter.
+
+Not yet: logs through OpenTelemetry, and alerts.
 
 ---
 

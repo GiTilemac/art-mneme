@@ -41,3 +41,16 @@ When a new service is added (for example Grafana Cloud for observability), add a
 | Secrets | None. The repository variable `AWS_DEPLOY_ROLE_ARN_PROD` holds the role's address (not secret); AWS access is through OIDC. |
 | Cost and limits | Free plan. The repository is private: about 2,000 Actions minutes a month are included, and environments are not available. |
 | Set up | `README.md` > CI/CD. |
+
+---
+
+## Grafana Cloud
+
+| Field | Value |
+|---|---|
+| Purpose | The observability stack for dev and prod: metrics, traces and logs from the backend, and the dashboard "ArtMneme application metrics". Separate from the application stack. |
+| Decided | 2026-10-26 by the project owner (instead of an own observability server on AWS). |
+| Account | The project owner's Grafana Cloud account, free tier. Grafana is opened at the stack's `grafana.net` address with that account. |
+| Secrets | The OTLP endpoint and the token header: in SSM as `/artmneme/otel-exporter-otlp-endpoint` and `/artmneme/otel-exporter-otlp-headers` (prod), and as the environment variables `OTEL_EXPORTER_OTLP_ENDPOINT` and `OTEL_EXPORTER_OTLP_HEADERS` on the developer's computer (dev). Never in the repository. |
+| Cost and limits | Free tier: limited metrics series, logs and traces per month, short retention. ArtMneme's volume is far below it. |
+| Set up | `README.md` > Telemetry > Grafana Cloud. |

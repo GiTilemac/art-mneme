@@ -246,12 +246,37 @@ The backend sends OpenTelemetry traces and HTTP metrics for every request (`back
 | Variable | Used by | Value |
 |----------|---------|-------|
 | `OTEL_EXPORTER_OTLP_ENDPOINT` | the backend | where to send, e.g. `http://localhost:4318` for a local OpenTelemetry Collector. Not set: nothing is sent. |
-| `DEPLOYMENT_ENVIRONMENT` | the backend | `deployment.environment.name`: `prod` on AWS (set in `deploy/docker-compose.prod.yaml`); `local` when not set |
+| `OTEL_EXPORTER_OTLP_HEADERS` | the backend | the token for the receiver, e.g. `Authorization=Basic%20<base64 of instance-id:token>` for Grafana Cloud |
+| `DEPLOYMENT_ENVIRONMENT` | the backend | `deployment.environment.name`: `prod` on AWS (set in `deploy/docker-compose.prod.yaml`); `dev` when not set (your computer) |
 | `APP_VERSION` | the backend | `service.version`: the image tag, written into the image by `deploy/build.sh`; `unknown` when not set |
 
 `service.name` is always `artmneme-backend`. The application metrics (artworks created, creation failures, photos uploaded, relationship explorations, active users) are listed in `docs/observability.md` > Telemetry.
 
+### Grafana Cloud (dev and prod)
+
+Dev (your computer) and prod both send to one Grafana Cloud stack (`docs/external-services.md` > Grafana Cloud). One-time steps:
+
+1. In Grafana Cloud, open your stack > Connections > OpenTelemetry (OTLP). Note the OTLP endpoint, the instance ID, and create a token that may write metrics, logs and traces.
+2. Make the header value: `Authorization=Basic%20` followed by `echo -n '<instance ID>:<token>' | base64 -w0`.
+3. For prod, store both in SSM (the server reads them at each deploy), then start "Deploy to prod":
+
+```bash
+aws ssm put-parameter --type SecureString --name /artmneme/otel-exporter-otlp-endpoint --value '<OTLP endpoint>'
+aws ssm put-parameter --type SecureString --name /artmneme/otel-exporter-otlp-headers --value 'Authorization=Basic%20<base64>'
+```
+
+4. For dev, set the same two values before `make run` (keep them out of the repository, e.g. in `~/.bashrc`):
+
+```bash
+export OTEL_EXPORTER_OTLP_ENDPOINT='<OTLP endpoint>'
+export OTEL_EXPORTER_OTLP_HEADERS='Authorization=Basic%20<base64>'
+```
+
+5. In Grafana Cloud, import `observability/grafana/dashboards/artmneme-app.json` (Dashboards > New > Import) and choose the Grafana Cloud Prometheus data source in its "Data source" filter.
+
 ### Local observability stack
+
+For working offline, the same stack can also run on your computer:
 
 `observability/` is a separate Docker Compose project: an OpenTelemetry Collector, Prometheus (metrics), Loki (logs), Tempo (traces) and Grafana, with the three data sources set up. All ports are open only on this computer.
 

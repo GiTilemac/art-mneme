@@ -405,6 +405,10 @@ Grafana dashboard for the application metrics (2026-10-26):
 
 - Claude added the provisioned dashboard "ArtMneme application metrics" with Environment and Version filters, checked its queries against real events, and looked at screenshots: it fixed bars that counted an event twice, replaced similar automatic colors with a palette checked for color blindness, and made the backend report counters as 0 at start so the first event after a deploy is counted.
 
+Shared observability in Grafana Cloud (2026-10-26):
+
+- The project owner chose Grafana Cloud (free tier) over an own AWS server for the shared observability stack. Claude passed the OTLP endpoint and token from SSM to the prod app container, made `dev` the default environment name on a developer's computer, gave the dashboard a data source filter so it also works in Grafana Cloud, and documented the setup.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.

@@ -209,7 +209,9 @@ Hosting (decided by the project owner on 2026-10-26): AWS, one EC2 server create
 
 CI/CD: GitHub Actions runs all tests on every push (`.github/workflows/ci-cd.yml`). On a push to `main`, after all tests pass, CI builds the image and pushes it to ECR (tag `YYYYMMDD-HHMMSS-shortsha`, plus the moving tag `dev`). Prod is deployed only by hand, with the workflow "Deploy to prod" (`.github/workflows/deploy-prod.yml`): it starts the `dev` image (or a chosen tag) without building, through a GitHub OIDC role (`deploy/github-oidc.yaml`), then checks `/api/health`.
 
-Environments (decided by the project owner on 2026-10-26): dev runs locally (`make run` and `make frontend`, or `docker compose up --build`); the AWS stack `artmneme` is prod. A separate dev stack on AWS is postponed. The course's "deploy every push to dev, promote to prod by hand" is adapted: every push is tested, and promoting to prod is the manual "Deploy to prod" workflow.
+Environments (decided by the project owner on 2026-10-26): dev runs locally (`make run` and `make frontend`, or `docker compose up --build`); the AWS stack `artmneme` is prod. A separate dev stack on AWS is postponed.
+
+Observability (decided by the project owner on 2026-10-26): dev and prod send OpenTelemetry data to one Grafana Cloud stack (free tier), separate from the application stack. `observability/` remains as a local copy of such a stack for offline work. The course's "deploy every push to dev, promote to prod by hand" is adapted: every push is tested, and promoting to prod is the manual "Deploy to prod" workflow.
 
 ---
 
