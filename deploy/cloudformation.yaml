@@ -10,9 +10,13 @@ Parameters:
     Type: String
     Default: t3.micro
     Description: x86 only; the image is built on an x86 machine.
-  LatestAmi:
-    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
-    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  # Fixed on purpose: a new image replaces the server, and the database on its disk with it.
+  # Change it only with a planned move (snapshot first; see README.md > Deploy a new version).
+  # The latest image: aws ssm get-parameter --name /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+  ServerImage:
+    Type: AWS::EC2::Image::Id
+    Default: ami-03054abaec0c63e6e
+    Description: Amazon Linux 2023 x86_64 (al2023-ami-2023.12.20261026.1), in eu-central-1.
 
 Resources:
   # Photos. Kept when the stack is deleted, so photos are never lost by accident.
@@ -85,7 +89,7 @@ Resources:
   Server:
     Type: AWS::EC2::Instance
     Properties:
-      ImageId: !Ref LatestAmi
+      ImageId: !Ref ServerImage
       InstanceType: !Ref InstanceType
       IamInstanceProfile: !Ref ServerProfile
       SecurityGroupIds: [!GetAtt WebSecurityGroup.GroupId]

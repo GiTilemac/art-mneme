@@ -359,7 +359,7 @@ If the new version does not work, go back to the previous one:
 2. Run `git checkout main` again.
 3. If the new version changed the database, restore the snapshot from step 3 instead (create a volume from it and attach it in place of the server's disk), or ask for help first.
 
-Changes to `deploy/cloudformation.yaml` are deployed with `make deploy-stack`, not `make deploy`. Be careful: the template asks for the latest Amazon Linux image, so after Amazon publishes a new one, `make deploy-stack` replaces the server, and the database on its disk starts empty. A change to `UserData` stops and starts the server, and the start script does not run again. Take a disk snapshot before every `make deploy-stack` on a running stack.
+Changes to `deploy/cloudformation.yaml` are deployed with `make deploy-stack`, not `make deploy`. The server's Amazon Linux image is fixed in the template (`ServerImage`), because a different image replaces the server, and the database on its disk starts empty. Change it only on purpose, after a disk snapshot. A change to `UserData` stops and starts the server, and the start script does not run again. Take a disk snapshot before every `make deploy-stack` on a running stack.
 
 ---
 
