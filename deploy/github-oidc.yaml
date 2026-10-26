@@ -16,9 +16,11 @@ Parameters:
     Type: String
     Default: artmneme
     Description: The app stack's ECR repository.
-  GitHubRepository:
+  # GitHub sends the repository with its fixed owner and repository IDs ("immutable subject"):
+  # gh api repos/GiTilemac/art-mneme/actions/oidc/customization/sub shows this prefix.
+  SubjectPrefix:
     Type: String
-    Default: GiTilemac/art-mneme
+    Default: repo:GiTilemac@8764181/art-mneme@1423360928
   CreateOidcProvider:
     Type: String
     AllowedValues: ["true", "false"]
@@ -52,7 +54,7 @@ Resources:
               StringEquals:
                 token.actions.githubusercontent.com:aud: sts.amazonaws.com
                 # Only a workflow run of this repository for this branch (not pull requests, not other branches).
-                token.actions.githubusercontent.com:sub: !Sub repo:${GitHubRepository}:ref:refs/heads/${Branch}
+                token.actions.githubusercontent.com:sub: !Sub ${SubjectPrefix}:ref:refs/heads/${Branch}
       Policies:
         - PolicyName: deploy
           PolicyDocument:
