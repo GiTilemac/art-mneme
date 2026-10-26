@@ -1,19 +1,19 @@
 # Manual deploy to prod (the AWS stack artmneme): Actions > "Deploy to prod" > Run workflow, on main.
-# It deploys the newest commit of main, or the commit given, but only if the CI workflow passed for it.
+# Deploy stage only: it builds nothing. It starts the image tagged "dev" in ECR (the newest image that CI built
+# from main after all tests passed), or the image tag entered (YYYYMMDD-HHMMSS-shortsha), e.g. to roll back.
 # AWS access: the repository variable AWS_DEPLOY_ROLE_ARN_PROD (deploy/github-oidc.yaml; trusts runs on main).
 name: Deploy to prod
 
 on:
   workflow_dispatch:
     inputs:
-      commit:
-        description: Commit to deploy (empty = the newest commit of main)
+      tag:
+        description: Image tag to deploy (empty = the image tagged dev)
         required: false
         default: ""
 
 permissions:
   contents: read
-  actions: read
   id-token: write
 
 # One deploy at a time; a second one waits.
@@ -30,26 +30,17 @@ jobs:
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     steps:
+      # The full history, so deploy.sh can take the deploy files from the image's own commit.
       - uses: actions/checkout@v5
         with:
           fetch-depth: 0
-      - name: Choose the commit and check that CI passed for it
-        env:
-          GH_TOKEN: ${{ github.token }}
-          COMMIT: ${{ inputs.commit }}
-        run: |
-          sha=$(git rev-parse --verify "${COMMIT:-origin/main}^{commit}")
-          git merge-base --is-ancestor "$sha" origin/main || { echo "$sha is not on main"; exit 1; }
-          result=$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/ci-cd.yml/runs?head_sha=$sha&event=push" \
-            --jq '[.workflow_runs[] | select(.status == "completed")][0].conclusion')
-          [ "$result" = success ] || { echo "CI has not passed for $sha (result: ${result:-no run})"; exit 1; }
-          git checkout --quiet "$sha"
-          echo "Deploying $sha"
       - uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
           aws-region: ${{ env.AWS_REGION }}
-      - run: deploy/deploy.sh
+      - run: deploy/deploy.sh "$TAG"
+        env:
+          TAG: ${{ inputs.tag }}
       - name: Check that prod is healthy
         run: |
           url=$(aws cloudformation describe-stacks --stack-name "$STACK" \

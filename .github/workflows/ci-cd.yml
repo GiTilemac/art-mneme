@@ -1,5 +1,6 @@
-# Tests on every push and pull request. Nothing is deployed here: dev runs locally, and prod is deployed
-# by hand with the workflow "Deploy to prod" (deploy-prod.yml), which accepts only commits that passed this workflow.
+# Tests on every push and pull request. On a push to main, after all tests pass, the build stage pushes the image
+# to ECR (YYYYMMDD-HHMMSS-shortsha) and tags it "dev". Nothing is deployed here: dev runs locally, and prod gets
+# an image only with the manual workflow "Deploy to prod" (deploy-prod.yml).
 name: CI
 
 on:
@@ -63,3 +64,19 @@ jobs:
         working-directory: backend
       - run: make integration
       - run: make e2e
+
+  # Build stage: the image of this commit, pushed to ECR. Only on main, and only after every test passed.
+  build:
+    needs: stack-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN_PROD }}
+          aws-region: eu-central-1
+      - run: deploy/build.sh

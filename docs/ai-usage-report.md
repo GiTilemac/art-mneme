@@ -385,6 +385,10 @@ Manual promotion to prod (2026-10-26):
 
 - The course asks for a cloud dev environment that gets every push, and a manual promotion to prod. The project owner decided on 2026-10-26 to keep dev local and the existing AWS stack as prod. Claude adapted the pipeline: `.github/workflows/ci-cd.yml` now only tests, and the new manual workflow `.github/workflows/deploy-prod.yml` deploys a commit of `main` to prod only if its tests passed, then checks the health endpoint. Claude also found and fixed why the first automatic deploy failed: this repository's GitHub OIDC tokens use the immutable subject (`repo:GiTilemac@8764181/art-mneme@1423360928:...`).
 
+Separate build and deploy stages (2026-10-26):
+
+- At the project owner's request, Claude split the pipeline: `deploy/build.sh` (run by CI on `main` after all tests pass) builds the image and pushes it to ECR as `YYYYMMDD-HHMMSS-shortsha` and moves the tag `dev`; `deploy/deploy.sh` and "Deploy to prod" only start an image from ECR (the `dev` image, or a chosen tag), with the deploy files from the image's commit. Because dev runs locally, "the currently deployed dev image" is adapted to "the newest image built from `main`". The CI role gained `ecr:DescribeImages`.
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.

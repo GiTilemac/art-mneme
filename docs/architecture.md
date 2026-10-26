@@ -207,7 +207,7 @@ API:       served at /api
 
 Hosting (decided by the project owner on 2026-10-26): AWS, one EC2 server created with CloudFormation (`deploy/cloudformation.yaml`). It runs Docker Compose with the app container, PostgreSQL and Caddy for HTTPS (`deploy/docker-compose.prod.yaml`). Images are kept in ECR, the database password in SSM Parameter Store, photos in a private S3 bucket, and the disk is snapshotted daily.
 
-CI/CD: GitHub Actions runs all tests on every push (`.github/workflows/ci-cd.yml`). Prod is deployed only by hand, with the workflow "Deploy to prod" (`.github/workflows/deploy-prod.yml`): it deploys a commit of `main` that passed the tests, through a GitHub OIDC role (`deploy/github-oidc.yaml`), then checks `/api/health`.
+CI/CD: GitHub Actions runs all tests on every push (`.github/workflows/ci-cd.yml`). On a push to `main`, after all tests pass, CI builds the image and pushes it to ECR (tag `YYYYMMDD-HHMMSS-shortsha`, plus the moving tag `dev`). Prod is deployed only by hand, with the workflow "Deploy to prod" (`.github/workflows/deploy-prod.yml`): it starts the `dev` image (or a chosen tag) without building, through a GitHub OIDC role (`deploy/github-oidc.yaml`), then checks `/api/health`.
 
 Environments (decided by the project owner on 2026-10-26): dev runs locally (`make run` and `make frontend`, or `docker compose up --build`); the AWS stack `artmneme` is prod. A separate dev stack on AWS is postponed. The course's "deploy every push to dev, promote to prod by hand" is adapted: every push is tested, and promoting to prod is the manual "Deploy to prod" workflow.
 

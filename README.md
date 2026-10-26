@@ -350,8 +350,9 @@ Dev runs locally (`make run` and `make frontend`, or `docker compose up --build`
 
 1. The backend tests and the frontend tests, in parallel.
 2. Then `make integration` and `make e2e` against the `docker-compose.yaml` stack.
+3. Then, only on a push to `main`, the build stage (`deploy/build.sh`): it builds the image and pushes it to ECR, tagged `<YYYYMMDD-HHMMSS>-<short commit>` (UTC build time, e.g. `20261026-163457-452bc20`), and moves the tag `dev` to it. `dev` always names the newest image built from `main` after all tests passed.
 
-`.github/workflows/deploy-prod.yml` ("Deploy to prod") runs only when you start it: GitHub > Actions > Deploy to prod > Run workflow, on `main`. It deploys the newest commit of `main`, or a commit you enter, but only if "CI" passed for that commit. Then it checks that `/api/health` on prod answers `{"status":"ok"}`.
+`.github/workflows/deploy-prod.yml` ("Deploy to prod") is the deploy stage. It runs only when you start it: GitHub > Actions > Deploy to prod > Run workflow, on `main`. It builds nothing: it starts the image tagged `dev`, or the image tag you enter (for example an older one, to roll back), on prod, with the deploy files from that image's commit (`deploy/deploy.sh`). Then it checks that `/api/health` on prod answers `{"status":"ok"}`.
 
 The deploy signs in to AWS with GitHub OIDC: no AWS keys are stored in GitHub. Only workflow runs on `main` of this repository may use the AWS role; pull requests and other branches cannot. GitHub environments (with a manual approval step) are not used: for private repositories they need a paid GitHub plan.
 
@@ -365,17 +366,16 @@ One-time steps:
 Run these steps from the repository root, in a terminal where `aws sts get-caller-identity` shows the ArtMneme account (for example after `export AWS_PROFILE=artmneme-deploy`).
 
 1. Run the tests: `make test`, `make integration` and `make e2e`. All must pass.
-2. Commit the changes. The image is named after the commit (for example `7ab31e2`); uncommitted changes give a name that ends in `-dirty`, so you cannot tell later what runs.
+2. Commit and push the changes to `main`. CI tests them and builds the image (or run `make build` from your computer; it refuses uncommitted changes, because the image tag names the commit).
 3. If the version changes the database (a new file in `backend/migrations/versions/`), take a snapshot of the server disk first. The app updates the database schema when it starts, and a rollback does not undo that.
-4. Start "Deploy to prod" in GitHub Actions (see CI/CD above), or run `make deploy` from your computer. It builds the image, uploads it, copies `deploy/docker-compose.prod.yaml` and `deploy/Caddyfile` to the server and restarts the changed containers. The app is unavailable for a few seconds. At the end it prints `Deployed <commit> to <address>`.
+4. Start "Deploy to prod" in GitHub Actions (see CI/CD above), or run `make deploy` from your computer. It takes the image tagged `dev` from ECR, copies `deploy/docker-compose.prod.yaml` and `deploy/Caddyfile` of that image's commit to the server and restarts the changed containers. The app is unavailable for a few seconds. At the end it prints `Deployed <commit> to <address>`.
 5. Check the result: `curl https://<address>/api/health` gives `{"status":"ok"}`. Then sign in in a browser and open an artwork.
 6. Push the commit to GitHub, so the repository shows what runs.
 
 If the new version does not work, go back to the previous one:
 
-1. Run `git checkout <previous commit>`, then `make deploy`. ECR keeps the last 5 images, but `make deploy` builds the image again from that commit.
-2. Run `git checkout main` again.
-3. If the new version changed the database, restore the snapshot from step 3 instead (create a volume from it and attach it in place of the server's disk), or ask for help first.
+1. Start "Deploy to prod" with the previous image tag, or run `make deploy TAG=<previous tag>`. ECR keeps the last 5 images; `aws ecr describe-images --repository-name artmneme` lists their tags.
+2. If the new version changed the database, restore the snapshot from step 3 instead (create a volume from it and attach it in place of the server's disk), or ask for help first.
 
 Changes to `deploy/cloudformation.yaml` are deployed with `make deploy-stack`, not `make deploy`. The server's Amazon Linux image is fixed in the template (`ServerImage`), because a different image replaces the server, and the database on its disk starts empty. Change it only on purpose, after a disk snapshot. A change to `UserData` stops and starts the server, and the start script does not run again. Take a disk snapshot before every `make deploy-stack` on a running stack.
 

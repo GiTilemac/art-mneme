@@ -64,7 +64,7 @@ Resources:
               - Effect: Allow
                 Action: cloudformation:DescribeStacks
                 Resource: !Sub arn:${AWS::Partition}:cloudformation:${AWS::Region}:${AWS::AccountId}:stack/${AppStackName}/*
-              # ... pushes the image ...
+              # ... pushes and tags images (deploy/build.sh), finds the image to deploy ...
               - Effect: Allow
                 Action: ecr:GetAuthorizationToken
                 Resource: "*"
@@ -73,6 +73,7 @@ Resources:
                   - ecr:BatchCheckLayerAvailability
                   - ecr:BatchGetImage
                   - ecr:CompleteLayerUpload
+                  - ecr:DescribeImages
                   - ecr:InitiateLayerUpload
                   - ecr:PutImage
                   - ecr:UploadLayerPart

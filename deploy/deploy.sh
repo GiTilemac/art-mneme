@@ -1,6 +1,8 @@
 #!/bin/bash
-# Builds the image, pushes it to the stack's ECR repository, and starts it on the server through SSM.
-# Run from the repository root with `make deploy`, after `make deploy-stack`.
+# Deploy stage: starts an image that is already in ECR on the stack's server through SSM. Builds nothing.
+# Usage: deploy/deploy.sh [TAG]. Without TAG it deploys the image tagged "dev" (the newest build of main).
+# The server gets docker-compose.prod.yaml and the Caddyfile from the image's own commit.
+# Run from the repository root with `make deploy` or `make deploy TAG=<tag>`.
 set -euo pipefail
 STACK=${STACK:-artmneme}
 
@@ -11,15 +13,19 @@ output() {
 repository=$(output RepositoryUri)
 instance=$(output InstanceId)
 url=$(output AppUrl)
-tag=$(git rev-parse --short HEAD)$(git diff --quiet HEAD || echo -dirty)
 
-docker build -t "$repository:$tag" .
-aws ecr get-login-password | docker login --username AWS --password-stdin "${repository%%/*}"
-docker push "$repository:$tag"
+tag=${1:-}
+if [ -z "$tag" ]; then
+  # The timestamped tag of the image that "dev" points to.
+  tag=$(aws ecr describe-images --repository-name "${repository#*/}" --image-ids imageTag=dev \
+    --query 'imageDetails[0].imageTags' --output text | tr '\t' '\n' | grep -E '^[0-9]{8}-[0-9]{6}-[0-9a-f]{7}$' | head -1)
+fi
+[[ "$tag" =~ ^[0-9]{8}-[0-9]{6}-([0-9a-f]{7})$ ]] || { echo "Not an image tag of the form YYYYMMDD-HHMMSS-shortsha: '$tag'"; exit 1; }
+commit=${BASH_REMATCH[1]}
+aws ecr describe-images --repository-name "${repository#*/}" --image-ids imageTag="$tag" > /dev/null
 
-# The server gets the compose file and Caddyfile from this repository, so both always match it.
-compose=$(base64 -w0 deploy/docker-compose.prod.yaml)
-caddy=$(base64 -w0 deploy/Caddyfile)
+compose=$(git show "$commit:deploy/docker-compose.prod.yaml" | base64 -w0)
+caddy=$(git show "$commit:deploy/Caddyfile" | base64 -w0)
 command_id=$(aws ssm send-command --instance-ids "$instance" --document-name AWS-RunShellScript \
   --comment "ArtMneme $tag" --query Command.CommandId --output text --parameters "{\"commands\": [
     \"cd /opt/artmneme\",
