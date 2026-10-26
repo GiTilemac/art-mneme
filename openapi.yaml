@@ -333,6 +333,8 @@ paths:
                 $ref: "#/components/schemas/ArtworkPage"
         "401":
           $ref: "#/components/responses/NotLoggedIn"
+        "422":
+          $ref: "#/components/responses/Invalid"
     post:
       tags: [Artworks]
       summary: Create an artwork
