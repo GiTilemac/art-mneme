@@ -296,6 +296,19 @@ openapi.yaml
 product-spec.md
 ```
 
+View, edit and delete own artwork API (backlog task 8, GitHub issue #8):
+
+- The project owner groomed the task and decided, on 2026-10-25: `404` "Artwork not found." for odd ids (`0`, `-1`, `abc`, `1.5`, `99999999999`) on all three operations, without an `openapi.yaml` change; that a discoverable artwork may not lose its title, artist or date; the delete order (database rows first in one open transaction, stored files deleted through the #6 module, commit only when every file is gone, `503` and nothing deleted when storage is unreachable, a repeated delete finishing the job); and the `product-spec.md` change adding Delete Artwork to the Artwork Page actions.
+- Claude made the approved `product-spec.md` change first, in its own commit, and wrote `GET`, `PATCH` and `DELETE /api/artworks/{artwork_id}` in `backend/main.py`, reusing the login check, the text cleaning and control-character check of #4, the date check, the shared `Artwork` builder of #7 and the photo module of #6.
+- Claude wrote tests for the acceptance criteria. On 2026-10-26, before committing them, Claude ran the full suite, found 32 failures caused by mistakes in the tests (not in the endpoint code), fixed them, and confirmed the full suite passes (920 tests).
+
+Recorded in:
+
+```text
+backend/
+product-spec.md
+```
+
 Community postponed to a later version (backlog rework, 2026-10-26):
 
 - To save credits, the project owner asked which backlog work could wait. Claude recommended postponing community; the project owner decided on 2026-10-26 to postpone community, including discoverability, to keep the database columns, the two `Artwork` fields (always false in v1) and the finished #8 code as they are, and to hide the frontend controls as part of #11.
