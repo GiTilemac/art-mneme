@@ -31,6 +31,7 @@ Also: `docs/observability.md` covers metrics, alerts and the responder agent.
 
 ## Agent Rules
 
+- Reproduce a reported problem before you explain it. If reproducing costs a lot of time or credits, give a possible explanation, mark it as unconfirmed, and ask the project owner before the expensive reproduction.
 - Do not introduce undocumented endpoints. Keep `openapi.yaml` and the implementation in sync.
 - Record AI contributions in `docs/ai-usage-report.md`.
 - Stop and ask the project owner before:
